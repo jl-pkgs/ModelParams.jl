@@ -1,0 +1,18 @@
+name = "ModelParams"
+uuid = "213f2e2a-cade-4ae1-a9bc-67b7781bcca8"
+authors = ["Dongdong Kong <kongdd@users.noreply.github.com>"]
+version = "0.1.0"
+
+[deps]
+FieldMetadata = "bf96fef3-21d2-5d20-8afa-0e7d4c32a885"
+
+[compat]
+FieldMetadata = "0.3.1"
+Parameters = "0.12.3"
+
+[extras]
+Parameters = "d96e819e-fc66-5662-9728-84c9c7592b0a"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test", "Parameters"]
