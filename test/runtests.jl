@@ -2,6 +2,7 @@ using ModelParams, Test
 using Parameters
 # 必须要@with_kw，Base.@kwdef报错
 
+include("test-sceua.jl")
 
 # 水分限制-GPP
 abstract type AbstractWaterConsGPPModel{FT} <: AbstractModel{FT} end
