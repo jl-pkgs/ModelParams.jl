@@ -19,11 +19,10 @@ function MIN(x, dims=1)
   minimum(x, dims=dims)[:]
 end
 
-function MEAN(x, dims)
-  mean(x, dims=dims)[:]
-end
-
-MEAN(x) = MEAN(x, 1)
+# function MEAN(x, dims)
+#   mean(x, dims=dims)[:]
+# end
+# MEAN(x) = MEAN(x, 1)
 
 ## RANDOM ----------------------------------------------------------------------
 set_seed(seed=1) = Random.seed!(seed)
