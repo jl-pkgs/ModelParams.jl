@@ -2,7 +2,7 @@ module ModelParams
 
 
 export AbstractModel
-export Params, update!
+export Params, update!, optimize_params!
 export @bounds, @units
 
 include("ModelParam.jl")

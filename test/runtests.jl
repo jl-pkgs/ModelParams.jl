@@ -65,3 +65,39 @@ end
   @test model.VCmax25 == 10.
   @test model.watercons.VPDmin == 0.8
 end
+
+
+@testset "Parameter Optimization" begin
+  FT = Float64
+  model = Photosynthesis_Rong2018{FT}()
+  
+  # Test optimization function exists and can be called
+  @test hasmethod(optimize_params!, (AbstractModel, Function, Vector{Symbol}))
+  
+  # Simple objective function to minimize squared distance from targets
+  objective_fn = function(m)
+    target_α = 0.08
+    target_kQ = 0.5
+    return (m.α - target_α)^2 + (m.kQ - target_kQ)^2
+  end
+  
+  initial_cost = objective_fn(model)
+  
+  # Test optimization with manual bounds
+  param_names = [:α, :kQ]
+  manual_bounds = [(0.01, 0.10), (0.10, 1.0)]
+  
+  optimal_params, optimal_cost, exitflag = optimize_params!(
+    model, objective_fn, param_names; 
+    bounds=manual_bounds, maxn=200, verbose=false
+  )
+  
+  # Basic checks
+  @test length(optimal_params) == 2
+  @test optimal_cost < initial_cost
+  @test optimal_params[1].name == :α
+  @test optimal_params[2].name == :kQ
+  
+  # Test error handling
+  @test_throws ErrorException optimize_params!(model, objective_fn, [:nonexistent])
+end
