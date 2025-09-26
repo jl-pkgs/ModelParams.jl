@@ -32,16 +32,20 @@ function get_ModelParamRecur(x::T, path=Vector{Symbol}(); fun=bounds) where {FT,
 end
 
 
-function Params(model::AbstractModel)
+function Params(model::AbstractModel; na_rm::Bool=true)
   _names = get_ModelParamRecur(model; fun=_fieldname)
   _bounds = get_ModelParamRecur(model; fun=bounds)
   _values = get_ModelParamRecur(model; fun=getfield)
   _units = get_ModelParamRecur(model; fun=units)
 
   # 返回NamedTuple向量，符合Tables接口
-  [(name=last(n), value=last(v), bound=last(b),
-    unit=last(u), path=first(n))
-   for (n, v, u, b) in zip(_names, _values, _units, _bounds)] |> DataFrame
+  params = [
+    (name=last(n), value=last(v), bound=last(b), unit=last(u), path=first(n))
+    for (n, v, u, b) in zip(_names, _values, _units, _bounds)] |> DataFrame
+
+  lgl = .!isnan.(map(x -> x[2] - x[1], params.bound)) # bounds不为NaN的params
+  na_rm && (params[lgl, :])
+  return params
 end
 
 
