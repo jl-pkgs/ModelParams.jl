@@ -44,7 +44,7 @@ function Params(model::AbstractModel; na_rm::Bool=true)
     for (n, v, u, b) in zip(_names, _values, _units, _bounds)] |> DataFrame
 
   lgl = .!isnan.(map(x -> x[2] - x[1], params.bound)) # bounds不为NaN的params
-  na_rm && (params[lgl, :])
+  na_rm && (params = params[lgl, :])
   return params
 end
 
