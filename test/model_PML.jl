@@ -1,4 +1,6 @@
-using ModelParams, Test
+using ModelParams
+import ModelParams: bounds, units, @bounds, @units
+using Test
 using Parameters
 
 

@@ -2,9 +2,7 @@ using ModelParams, Test
 using Parameters
 # 必须要@with_kw，Base.@kwdef报错
 
-include("model_PML.jl")
 include("test-sceua.jl")
-
 
 @testset "GOF" begin
   @test GOF(1:10, 2:11) ==
@@ -12,8 +10,9 @@ include("test-sceua.jl")
 end
 
 
-
 @testset "ModelParams update!" begin
+  include("model_PML.jl")
+
   FT = Float64
   model = Photosynthesis_Rong2018{FT}()
 
@@ -21,8 +20,11 @@ end
   # params |> DataFrame
 
   parnames = [:kQ, :VCmax25, :VPDmin]
+  inds = indexin(parnames, params.name)
+  paths = params.path[inds]
+  
   parvalues = [0.6, 10., 0.8]
-  @time update!(model, parnames, parvalues; params)
+  @time update!(model, paths, parvalues; params)
 
   @test model.kQ == 0.6
   @test model.VCmax25 == 10.
