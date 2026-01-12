@@ -11,6 +11,17 @@ function valid_index(obs::AbstractVector, sim::AbstractVector)
   obs, sim
 end
 
+function of_MAE(obs, sim)
+  obs, sim = valid_index(obs, sim)
+  length(sim) <= 2 && (return -999.0)
+  mean(abs.(sim .- obs))        # Mean Absolute Error
+end
+
+function of_RMSE(obs, sim)
+  obs, sim = valid_index(obs, sim)
+  length(sim) <= 2 && (return -999.0)
+  sqrt(mean((sim .- obs) .^ 2)) # Root Mean Square Error
+end
 
 """
     of_KGE(obs, sim, w=[1, 1, 1])
@@ -90,5 +101,6 @@ function GOF(obs::AbstractVector{T}, sim::AbstractVector{T}, args...; kw...) whe
 end
 
 
+export of_RMSE, of_MAE
 export of_NSE, of_KGE, of_NSE_multi, of_KGE_multi,
   GOF, valid_index
