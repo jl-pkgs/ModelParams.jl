@@ -139,3 +139,29 @@ end
   x, feval, exitflag = sceua(functn6, x0, bl, bu; maxn=1e4)
   @test abs(feval - -10.5364098252) <= 2e-5
 end
+
+@testset "parallel reproducibility" begin
+  function rosenbrock2(x)
+    100 * (x[2] - x[1]^2)^2 + (1 - x[1])^2
+  end
+
+  bl = [-5.0, -5.0]
+  bu = [5.0, 5.0]
+  x0 = [-1.0, 1.0]
+
+  kw_local = (; maxn=2000, kstop=10, f_reltol=0.001, x_reltol=0.001, include_initial=0, seed=1)
+
+  if Base.Threads.nthreads() > 1
+    x1, f1, exit1 = sceua(rosenbrock2, x0, bl, bu; kw_local..., parallel=true)
+    x2, f2, exit2 = sceua(rosenbrock2, x0, bl, bu; kw_local..., parallel=true)
+    xs, fs, exits = sceua(rosenbrock2, x0, bl, bu; kw_local..., parallel=false)
+
+    @test exit1 == exit2 == exits
+    @test f1 == f2
+    @test x1 == x2
+    @test fs == f1
+    @test xs == x1
+  else
+    @test true
+  end
+end

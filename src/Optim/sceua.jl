@@ -24,7 +24,7 @@ function sceua(fn::Function, x0::Vector{FT}, bl::Vector{FT}, bu::Vector{FT}, arg
   include_initial == 1 && (x[1, :] = x0)
 
   _fn(i, _args...; _kw...) = fn(x[i, :], _args...; _kw...) |> sanitize
-  xf = FT.(par_map(_fn, 1:n_popu, args...; kw..., parallel=true, use_deepcopy=true))
+  xf = FT.(par_map(_fn, 1:n_popu, args...; kw..., parallel, use_deepcopy=true))
 
   # 判定标准
   num_evals = n_popu
@@ -40,7 +40,6 @@ function sceua(fn::Function, x0::Vector{FT}, bl::Vector{FT}, bu::Vector{FT}, arg
   @printf("Iteration = %3d, nEvals = %3d, Best Cost = %.5f\n", nloop, num_evals, bestf)
 
   # Begin evolution loops:
-  lpos = 1
   criter = []
 
   eval_counts = zeros(Int, n_complex)
@@ -51,7 +50,7 @@ function sceua(fn::Function, x0::Vector{FT}, bl::Vector{FT}, bu::Vector{FT}, arg
   while num_evals .< maxn && gnrng > x_reltol && criter_change .> f_reltol
     nloop = nloop + 1
     # Loop on complexes [sub-populations]
-    for igs = 1:n_complex
+    @par parallel for igs = 1:n_complex
       # Partition the population into complexes [sub-populations]
       k1 = 1:npg
       k2 = (k1 .- 1) .* n_complex .+ igs
@@ -73,6 +72,7 @@ function sceua(fn::Function, x0::Vector{FT}, bl::Vector{FT}, bu::Vector{FT}, arg
         # probability distribution
         lcs[1] = 1
         for k3 = 2:nps
+          lpos = 1
           for iter = 1:1000
             lpos = 1 + floor(npg + 0.5 - sqrt((npg + 0.5)^2 - npg * (npg + 1) * rand(rng)))
             idx = findall(lcs[1:k3-1] .== lpos)
