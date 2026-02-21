@@ -29,55 +29,8 @@ x, feval, exitflag, output = sceua(fn, x0, bl, bu)
 function sceua(fn::Function, x0::Vector{FT}, bl::Vector{FT}, bu::Vector{FT};
   verbose=false,
   maxn=1000, kstop=5, pcento=0.01, peps=0.0001, ngs=5, iseed=1, iniflg=1) where {FT<:Real}
-  ## This is the subroutine implementing the SCE algorithm
-  # written by Q.Duan; 9/2004
-  #
-  ## Update by Kong Dongdong; 20220607
-  # add argument default values
-  # 
-  ## RETURN
-  # `exitflag`:
-  #  - `1`: 函数收敛于解 x。
-  #  - `0`: 迭代次数超出 options.MaxIter 或函数计算次数超过 options.MaxFunEvals。
-  # `- -1`: 算法由输出函数终止。
-  #
-  ##seealso fminsearch()
-  #
-  ## Examples
-  # ```MATLAB
-  # [x, feval, exitflag] = sceua(x0, fn, bl, bu, maxn)
-  # ```
-  ## References:
-  # 1. https://www.rdocumentation.org/packages/rtop/versions/0.5-14/topics/sceua()
-  #
-  # ```R
-  # sceua(OFUN, pars, lower, upper, maxn = 10000, kstop = 5, pcento = 0.01
-  #   ngs = 5; npg = 5; nps = 5; nspl = 5; mings = 5; iniflg = 1; iprint = 0; iround = 3
-  #   peps = 0.0001, plog = rep[FALSE,length(pars)], implicit = NULL, timeout = NULL, ...)
-  # ```
 
   exitflag = -1
-  # LIST OF LOCAL VARIABLES
-  #    x[.,.]    = coordinates of points in the population
-  #    xf[.]     = function values of x[.,.]
-  #    xx[.]     = coordinates of a single point in x
-  #    cx[.,.]   = coordinates of points in a complex()
-  #    cf[.]     = function values of cx[.,.]
-  #    s[.,.]    = coordinates of points in the current simplex
-  #    sf[.]     = function values of s[.,.]
-  #    bestx[.]  = best point at current shuffling loop
-  #    bestf     = function value of bestx[.]
-  #    worstx[.] = worst point at current shuffling loop
-  #    worstf    = function value of worstx[.]
-  #    xnstd[.]  = standard deviation of parameters in the population
-  #    gnrng     = normalized geometri#mean of parameter ranges
-  #    lcs[.]    = indices locating position of s[.,.] in x[.,.]
-  #    bound[.]  = bound on ith variable being optimized
-  #    ngs1      = number of complexes in current population
-  #    ngs2      = number of complexes in last population
-  #    iseed1    = current random seed
-  #    criter[.] = vector containing the best criterion values of the last
-  #                10 shuffling loops
   set_seed(iseed)
 
   # Initialize SCE parameters:
@@ -125,7 +78,7 @@ function sceua(fn::Function, x0::Vector{FT}, bl::Vector{FT}, bu::Vector{FT};
   xnstd = std(x)
   # Computes the normalized geometric range of the parameters
   ## TODO: BUG HERE
-  gnrng = exp(mean(log.((maximum(x) - minimum(x)) ./ bound)))
+  gnrng = exp(mean(log.((colMax(x) - colMin(x)) ./ bound)))
 
   # disp("The Initial Loop: 0")
   # disp(["BESTF  : ' num2str(bestf), ' ' 'BESTX  : [' num2str(bestx), ']"])
@@ -183,13 +136,9 @@ function sceua(fn::Function, x0::Vector{FT}, bl::Vector{FT}, bu::Vector{FT};
 
         snew, fnew, icall = cceua(fn, s, sf, bl, bu, icall)
 
-        # Replace the worst point in Simplex with the new point:
-        s[nps, :] = snew
-        sf[nps] = fnew
-
         # Replace the simplex into the complex()
-        cx[lcs, :] = s
-        cf[lcs] = sf
+        cx[lcs[end], :] = snew
+        cf[lcs[end]] = fnew
         # Sort the complex()
         cf, idx = SORT(cf)
         cx = cx[idx, :]
@@ -211,7 +160,7 @@ function sceua(fn::Function, x0::Vector{FT}, bl::Vector{FT}, bu::Vector{FT};
     # Compute the standard deviation for each parameter
     xnstd = std(x)
     # Computes the normalized geometric range of the parameters
-    gnrng = exp(mean(log.((MAX(x) - MIN(x)) ./ bound)))
+    gnrng = exp(mean(log.((colMax(x) - colMin(x)) ./ bound)))
 
     # disp(["Evolution Loop: ' num2str(nloop) ', Trial: " num2str(icall)])
     # disp(["BESTF  : ' num2str(bestf), ' ' 'BESTX  : [' num2str(bestx), ']"])

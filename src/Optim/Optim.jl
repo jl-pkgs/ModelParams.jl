@@ -6,17 +6,28 @@ using Random
 disp = println;
 num2str = string;
 
+module ReturnCode
+@enum T begin
+    Default
+    Success
+    MaxIters
+    Stalled
+    Failure
+end
+end
+
+
 function SORT(x::Vector{<:Real})
-  idx = sortperm(x)
-  x[idx], idx
+    idx = sortperm(x)
+    x[idx], idx
 end
 
-function MAX(x, dims=1)
-  maximum(x, dims=dims)[:]
+function colMax(x, dims=1)
+    maximum(x, dims=dims)[:]
 end
 
-function MIN(x, dims=1)
-  minimum(x, dims=dims)[:]
+function colMin(x, dims=1)
+    minimum(x, dims=dims)[:]
 end
 
 # function MEAN(x, dims)
@@ -40,4 +51,4 @@ include("sceua.jl")
 
 # export SORT, MEAN, MAX, MIN
 
-export sceua;
+export sceua, ReturnCode
