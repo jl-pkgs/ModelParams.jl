@@ -1,3 +1,7 @@
+# export SORT, MEAN, MAX, MIN
+export sceua, ReturnCode
+
+
 import Statistics: std, mean;
 import Printf: @sprintf, @printf
 using Random
@@ -18,27 +22,6 @@ end
 
 # 兜底机制
 sanitize(v::FT) where {FT<:Real} = isfinite(v) ? v : FT(Inf)
-
-ok(msg::String) = printstyled("$msg\n", color=:green)
-warn(msg::String) = printstyled("$msg\n", color=:yellow)
-bad(msg::String) = printstyled("$msg\n", color=:red)
-
-function show_status(exitflag, maxn)
-  if exitflag == ReturnCode.MaxIters
-    warn("Optim Stop: maxn=$maxn reached!")
-  elseif exitflag == ReturnCode.Success
-    ok("Optim Success!")
-  elseif exitflag == ReturnCode.Stalled
-    ok("Optim Stop: f_reltol reached!")
-  elseif exitflag == ReturnCode.Failure
-    bad("Optim Failed!")
-  end
-  # @printf("Search was stopped at trial number: %d \n", num_evals)
-  # println("Normalized geometric range = $(num2str(gnrng))")
-  # println("The best point has improved in last $(num2str(stagnation_iters)) LOOPS BY $(num2str(criter_change))")
-end
-
-
 
 function SORT(x::Vector{<:Real})
     idx = sortperm(x)
@@ -69,9 +52,6 @@ mrand(n) = rand(n)
 # mrand(n) = mat"rand($n, 1);"
 # include("MATLAB_helper.jl")
 
+include("helper.jl")
 include("cceua.jl")
 include("sceua.jl")
-
-# export SORT, MEAN, MAX, MIN
-
-export sceua, ReturnCode

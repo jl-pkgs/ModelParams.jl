@@ -1,17 +1,3 @@
-function geometric_range(x::AbstractMatrix{T}, bound::AbstractVector{T}) where {T<:AbstractFloat}
-  # xnstd = std(x, dims=1)[:]                               # standard deviation for each parameter
-  gnrng = exp(mean(log.((colMax(x) - colMin(x)) ./ bound))) # normalized geometric range of the parameters
-  return gnrng
-end
-
-function _callback(nloop, num_evals, fevals)
-  bestf = minimum(fevals)
-  worstf = maximum(fevals)
-  @printf("Iteration = %3d | nEvals = %4d |  Best = %9.5f  |  Worst = %9.5f\n",
-    nloop, num_evals, bestf, worstf)
-end
-
-
 function sceua(fn::Function, x0::Vector{FT}, bl::Vector{FT}, bu::Vector{FT}, args...;
   verbose=false, parallel=true,
   maxn=1000, kstop=5, f_reltol=0.0001, x_reltol=0.0001, n_complex=5,
@@ -24,7 +10,7 @@ function sceua(fn::Function, x0::Vector{FT}, bl::Vector{FT}, bu::Vector{FT}, arg
   n_param = length(x0)
   npg = 2 * n_param + 1
   nps = n_param + 1
-  nspl = npg
+  n_evolu = npg
   n_popu = npg * n_complex
 
   bound = bu - bl
@@ -38,10 +24,6 @@ function sceua(fn::Function, x0::Vector{FT}, bl::Vector{FT}, bu::Vector{FT}, arg
 
   _fn(i, _args...; _kw...) = fn(x[i, :], _args...; _kw...) |> sanitize
   xf = FT.(par_map(_fn, 1:n_popu, args...; kw..., parallel=true, use_deepcopy=true))
-  # xf = zeros(FT, npt)
-  # for i = 1:npt
-  #   xf[i] = fn(x[i, :]) # nopt
-  # end
 
   # 判定标准
   num_evals = n_popu
@@ -60,6 +42,11 @@ function sceua(fn::Function, x0::Vector{FT}, bl::Vector{FT}, bu::Vector{FT}, arg
   lpos = 1
   criter = []
 
+  eval_counts = zeros(Int, n_complex)
+  nslots = parallel ? Threads.maxthreadid() : 1
+  local_args = [deepcopy(args) for _ in 1:nslots]
+  local_kw = [deepcopy(kw) for _ in 1:nslots]
+
   while num_evals .< maxn && gnrng > x_reltol && criter_change .> f_reltol
     nloop = nloop + 1
     # Loop on complexes [sub-populations]
@@ -70,9 +57,15 @@ function sceua(fn::Function, x0::Vector{FT}, bl::Vector{FT}, bu::Vector{FT}, arg
       cx = x[k2, :]
       cf = xf[k2]
 
+      tid = Threads.threadid()
+      eval_args = local_args[tid]
+      eval_kw = local_kw[tid]
+
       # Evolve sub-population igs for nspl steps:
       lcs = zeros(Int, nps)
-      for loop = 1:nspl
+      local_num_evals = 0
+
+      for loop = 1:n_evolu
         # Select simplex by sampling the complex according to a linear
         # probability distribution
         lcs[1] = 1
@@ -90,7 +83,7 @@ function sceua(fn::Function, x0::Vector{FT}, bl::Vector{FT}, bu::Vector{FT}, arg
         s = cx[lcs, :]
         sf = cf[lcs]
 
-        snew, fnew, num_evals = cceua(fn, s, sf, bl, bu, num_evals, args...; kw...)
+        snew, fnew, local_num_evals = cceua(fn, s, sf, bl, bu, local_num_evals, eval_args...; eval_kw...)
 
         # Replace the simplex into the complex()
         cx[lcs[end], :] = snew
@@ -103,8 +96,11 @@ function sceua(fn::Function, x0::Vector{FT}, bl::Vector{FT}, bu::Vector{FT}, arg
       # Replace the complex back into the population
       x[k2, :] = cx[k1, :]
       xf[k2] = cf[k1]
+      eval_counts[igs] = local_num_evals
       # End of Loop on Complex Evolution
     end
+
+    num_evals += sum(eval_counts)
     # Shuffled the complexes
     xf, idx = SORT(xf)
     x = x[idx, :]
@@ -112,7 +108,6 @@ function sceua(fn::Function, x0::Vector{FT}, bl::Vector{FT}, bu::Vector{FT}, arg
     # Record the best & worst points
     bestx = x[1, :]
     bestf = xf[1]
-
     gnrng = geometric_range(x, bound)
 
     @printf("Iteration = %3d, nEvals = %3d, Best Cost = %.5f\n", nloop, num_evals, bestf)
