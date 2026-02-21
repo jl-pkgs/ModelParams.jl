@@ -16,6 +16,8 @@ module ReturnCode
 end
 end
 
+# 兜底机制
+sanitize(v::FT) where {FT<:Real} = isfinite(v) ? v : FT(Inf)
 
 ok(msg::String) = printstyled("$msg\n", color=:green)
 warn(msg::String) = printstyled("$msg\n", color=:yellow)

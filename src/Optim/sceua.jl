@@ -13,7 +13,7 @@ end
 
 
 function sceua(fn::Function, x0::Vector{FT}, bl::Vector{FT}, bu::Vector{FT}, args...;
-  verbose=false,
+  verbose=false, parallel=true,
   maxn=1000, kstop=5, f_reltol=0.0001, x_reltol=0.0001, n_complex=5,
   seed=1, include_initial=1, kw...) where {FT<:Real}
 
@@ -25,24 +25,26 @@ function sceua(fn::Function, x0::Vector{FT}, bl::Vector{FT}, bu::Vector{FT}, arg
   npg = 2 * n_param + 1
   nps = n_param + 1
   nspl = npg
-  npt = npg * n_complex
+  n_popu = npg * n_complex
 
   bound = bu - bl
   # Create an initial population to fill array x[npt,nopt]:
 
-  x = zeros(FT, npt, n_param)
-  for i = 1:npt
+  x = zeros(FT, n_popu, n_param)
+  for i = 1:n_popu
     x[i, :] = bl + rand(n_param) .* bound
   end
   include_initial == 1 && (x[1, :] = x0)
 
-  xf = zeros(FT, npt)
-  for i = 1:npt
-    xf[i] = fn(x[i, :]) # nopt
-  end
+  _fn(i, _args...; _kw...) = fn(x[i, :], _args...; _kw...) |> sanitize
+  xf = FT.(par_map(_fn, 1:n_popu, args...; kw..., parallel=true, use_deepcopy=true))
+  # xf = zeros(FT, npt)
+  # for i = 1:npt
+  #   xf[i] = fn(x[i, :]) # nopt
+  # end
 
   # 判定标准
-  num_evals = npt
+  num_evals = n_popu
   gnrng = geometric_range(x, bound)
   criter_change = 1e+5
 
@@ -88,7 +90,7 @@ function sceua(fn::Function, x0::Vector{FT}, bl::Vector{FT}, bu::Vector{FT}, arg
         s = cx[lcs, :]
         sf = cf[lcs]
 
-        snew, fnew, num_evals = cceua(fn, s, sf, bl, bu, num_evals)
+        snew, fnew, num_evals = cceua(fn, s, sf, bl, bu, num_evals, args...; kw...)
 
         # Replace the simplex into the complex()
         cx[lcs[end], :] = snew

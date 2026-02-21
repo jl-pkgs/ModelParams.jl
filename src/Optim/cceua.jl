@@ -44,20 +44,20 @@ function cceua(fn, s::AbstractMatrix{FT}, sf::AbstractVector{FT},
         snew = bl + rand(FT, n_param) .* (bu - bl)
     end
 
-    fnew = fn(snew)
+    fnew = fn(snew, args...; kw...)
     icall += 1
 
     # Reflection failed; now attempt a contraction point:
     if fnew .> fw
         snew = sw .+ beta * (ce .- sw)
-        fnew = fn(snew)
+        fnew = fn(snew, args...; kw...)
         icall += 1
 
         # Both reflection & contraction have failed; attempt a random point
         if fnew .> fw
             # snew = bl + rand(nopt) .* (bu - bl)
             snew = bl + rand(FT, n_param) .* (bu - bl)
-            fnew = fn(snew)
+            fnew = fn(snew, args...; kw...)
             icall += 1
         end
     end
