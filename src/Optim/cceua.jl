@@ -40,8 +40,7 @@ function cceua(fn, s::AbstractMatrix{FT}, sf::AbstractVector{FT},
     !isempty(idx) && (ibound = 2)
 
     if ibound >= 1
-        # snew = bl + rand(nopt) .* (bu - bl)
-        snew = bl + rand(FT, n_param) .* (bu - bl)
+        snew = bl + rand(rng, FT, n_param) .* (bu - bl)
     end
 
     fnew = fn(snew, args...; kw...)
@@ -55,8 +54,7 @@ function cceua(fn, s::AbstractMatrix{FT}, sf::AbstractVector{FT},
 
         # Both reflection & contraction have failed; attempt a random point
         if fnew .> fw
-            # snew = bl + rand(nopt) .* (bu - bl)
-            snew = bl + rand(FT, n_param) .* (bu - bl)
+            snew = bl + rand(rng, FT, n_param) .* (bu - bl)
             fnew = fn(snew, args...; kw...)
             icall += 1
         end

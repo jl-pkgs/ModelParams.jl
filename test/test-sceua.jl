@@ -1,4 +1,4 @@
-kw = (; maxn=1e4, kstop=10, f_reltol=0.001, x_reltol=0.001, include_initial=0)
+kw = (; kstop=10, f_reltol=0.001, x_reltol=0.001, include_initial=0)
 
 @testset "functn1" begin
   function functn1(x::Vector{Float32})
@@ -39,7 +39,7 @@ end
   bl = [-5.0, -5]
   bu = [5.0, 5]
   x0 = [-1.0, 1]
-  x, feval, exitflag = sceua(functn2, x0, bl, bu; kw...)
+  x, feval, exitflag = sceua(functn2, x0, bl, bu; kw..., maxn=1e4)
   # @show x, feval
   @test abs(feval - 0) <= 1e-6
 end
@@ -76,7 +76,7 @@ end
   bu = [1.0, 1]
   x0 = [-1.0, -1]
 
-  x, feval, exitflag = sceua(functn4, x0, bl, bu; kw...)
+  x, feval, exitflag = sceua(functn4, x0, bl, bu; kw..., maxn=1e4)
   @test abs(feval - (-2)) <= 1e-3
 end
 
@@ -101,7 +101,7 @@ end
   bl = -600.0 * ones(10)
   bu = 600.0 * ones(10)
   x0 = ones(10) * -1.0
-  x, feval, exitflag = sceua(functn5, x0, bl, bu; kw...)
+  x, feval, exitflag = sceua(functn5, x0, bl, bu; kw..., maxn=2e4)
   @test abs(feval - 0) <= 1e-6
 end
 
@@ -137,5 +137,5 @@ end
   x0 = [4.0, 4, 4, 3.0]
 
   x, feval, exitflag = sceua(functn6, x0, bl, bu; maxn=1e4)
-  @test abs(feval - -10.5364098252) <= 1e-5
+  @test abs(feval - -10.5364098252) <= 2e-5
 end

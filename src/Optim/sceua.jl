@@ -16,9 +16,10 @@ function sceua(fn::Function, x0::Vector{FT}, bl::Vector{FT}, bu::Vector{FT}, arg
   bound = bu - bl
   # Create an initial population to fill array x[npt,nopt]:
 
+  main_rng = _rng_from_seed(_rng_seed(seed, 0, 0))
   x = zeros(FT, n_popu, n_param)
   for i = 1:n_popu
-    x[i, :] = bl + rand(n_param) .* bound
+    x[i, :] = bl + rand(main_rng, FT, n_param) .* bound
   end
   include_initial == 1 && (x[1, :] = x0)
 
@@ -66,12 +67,14 @@ function sceua(fn::Function, x0::Vector{FT}, bl::Vector{FT}, bu::Vector{FT}, arg
       local_num_evals = 0
 
       for loop = 1:n_evolu
+        rng = _rng_from_seed(_rng_seed(seed, nloop, igs, loop))
+        
         # Select simplex by sampling the complex according to a linear
         # probability distribution
         lcs[1] = 1
         for k3 = 2:nps
           for iter = 1:1000
-            lpos = 1 + floor(npg + 0.5 - sqrt((npg + 0.5)^2 - npg * (npg + 1) * rand()))
+            lpos = 1 + floor(npg + 0.5 - sqrt((npg + 0.5)^2 - npg * (npg + 1) * rand(rng)))
             idx = findall(lcs[1:k3-1] .== lpos)
             isempty(idx) && break
           end
@@ -83,7 +86,7 @@ function sceua(fn::Function, x0::Vector{FT}, bl::Vector{FT}, bu::Vector{FT}, arg
         s = cx[lcs, :]
         sf = cf[lcs]
 
-        snew, fnew, local_num_evals = cceua(fn, s, sf, bl, bu, local_num_evals, eval_args...; eval_kw...)
+        snew, fnew, local_num_evals = cceua(fn, s, sf, bl, bu, local_num_evals, eval_args...; eval_kw..., rng)
 
         # Replace the simplex into the complex()
         cx[lcs[end], :] = snew
