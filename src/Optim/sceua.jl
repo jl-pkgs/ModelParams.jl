@@ -14,72 +14,51 @@ end
 
 function sceua(fn::Function, x0::Vector{FT}, bl::Vector{FT}, bu::Vector{FT}, args...;
   verbose=false,
-  maxn=1000, kstop=5, f_reltol=0.0001, x_reltol=0.0001, n_complex=5, 
-  seed=1, iniflg=1, kw...) where {FT<:Real}
+  maxn=1000, kstop=5, f_reltol=0.0001, x_reltol=0.0001, n_complex=5,
+  seed=1, include_initial=1, kw...) where {FT<:Real}
 
-  exitflag = -1
+  exitflag = ReturnCode.Default
   set_seed(seed)
 
   # Initialize SCE parameters:
-  nopt = length(x0)
-  npg = 2 * nopt + 1
-  nps = nopt + 1
+  n_param = length(x0)
+  npg = 2 * n_param + 1
+  nps = n_param + 1
   nspl = npg
   npt = npg * n_complex
 
   bound = bu - bl
   # Create an initial population to fill array x[npt,nopt]:
 
-  x = zeros(FT, npt, nopt)
+  x = zeros(FT, npt, n_param)
   for i = 1:npt
-    # x[i, :] = bl + rand(nopt) .* bound
-    x[i, :] = bl + mrand(nopt) .* bound
+    x[i, :] = bl + rand(n_param) .* bound
   end
+  include_initial == 1 && (x[1, :] = x0)
 
-  iniflg == 1 && (x[1, :] = x0)
-
-  icall = 0
   xf = zeros(FT, npt)
   for i = 1:npt
     xf[i] = fn(x[i, :]) # nopt
-    icall += 1
   end
 
-  # Sort the population in order of increasing function values
+  # 判定标准
+  num_evals = npt
+  gnrng = geometric_range(x, bound)
+  criter_change = 1e+5
+
   xf, idx = SORT(xf)
   x = x[idx, :]
 
-  # Record the best & worst points
   nloop = 0
   bestx = x[1, :]
   bestf = xf[1]
-  @printf("Iteration = %3d, nEvals = %3d, Best Cost = %.5f\n", nloop, icall, bestf)
-
-  gnrng = geometric_range(x, bound)
-
-  # disp("The Initial Loop: 0")
-  # disp(["BESTF  : ' num2str(bestf), ' ' 'BESTX  : [' num2str(bestx), ']"])
-  # disp(["WORSTF : ' num2str(worstf), ' ' 'WORSTX : [' num2str(worstx), ']"])
-  # nloop = 0
-
-  # Check for convergency
-  if icall >= maxn
-    disp("*** OPTIMIZATION SEARCH TERMINATED BECAUSE THE LIMIT")
-    disp("ON THE MAXIMUM NUMBER OF TRIALS $maxn HAS BEEN EXCEEDED.")
-    println("SEARCH WAS STOPPED AT TRIAL NUMBER: $icall OF THE INITIAL LOOP!")
-  end
-
-  if gnrng .< x_reltol
-    exitflag = 1
-    disp("THE POPULATION HAS CONVERGED TO A PRESPECIFIED SMALL PARAMETER SPACE")
-  end
+  @printf("Iteration = %3d, nEvals = %3d, Best Cost = %.5f\n", nloop, num_evals, bestf)
 
   # Begin evolution loops:
   lpos = 1
   criter = []
-  criter_change = 1e+5
 
-  while icall .< maxn && gnrng > x_reltol && criter_change .> f_reltol
+  while num_evals .< maxn && gnrng > x_reltol && criter_change .> f_reltol
     nloop = nloop + 1
     # Loop on complexes [sub-populations]
     for igs = 1:n_complex
@@ -97,7 +76,7 @@ function sceua(fn::Function, x0::Vector{FT}, bl::Vector{FT}, bu::Vector{FT}, arg
         lcs[1] = 1
         for k3 = 2:nps
           for iter = 1:1000
-            lpos = 1 + floor(npg + 0.5 - sqrt((npg + 0.5)^2 - npg * (npg + 1) * mrand()))
+            lpos = 1 + floor(npg + 0.5 - sqrt((npg + 0.5)^2 - npg * (npg + 1) * rand()))
             idx = findall(lcs[1:k3-1] .== lpos)
             isempty(idx) && break
           end
@@ -105,11 +84,11 @@ function sceua(fn::Function, x0::Vector{FT}, bl::Vector{FT}, bu::Vector{FT}, arg
         end
         lcs = sort(lcs)
         # Construct the simplex:
-        s = zeros(FT, nps, nopt)
+        s = zeros(FT, nps, n_param)
         s = cx[lcs, :]
         sf = cf[lcs]
 
-        snew, fnew, icall = cceua(fn, s, sf, bl, bu, icall)
+        snew, fnew, num_evals = cceua(fn, s, sf, bl, bu, num_evals)
 
         # Replace the simplex into the complex()
         cx[lcs[end], :] = snew
@@ -134,41 +113,30 @@ function sceua(fn::Function, x0::Vector{FT}, bl::Vector{FT}, bu::Vector{FT}, arg
 
     gnrng = geometric_range(x, bound)
 
-    @printf("Iteration = %3d, nEvals = %3d, Best Cost = %.5f\n", nloop, icall, bestf)
+    @printf("Iteration = %3d, nEvals = %3d, Best Cost = %.5f\n", nloop, num_evals, bestf)
 
     # Check for convergency
-    if icall >= maxn
-      exitflag = 0
-      if verbose
-        disp("\n*** Optimization search terminated because the limit ***")
-        println("On the maximum number of trials $(maxn) has been exceeded!")
-      end
-    end
-    if gnrng .< x_reltol
-      exitflag = 1
-      verbose && disp("The population has converged to a prespecified small parameter space")
-    end
     push!(criter, bestf)
     # criter = [criter bestf]'
     if (nloop >= kstop)
       criter_change = abs(criter[nloop] - criter[nloop-kstop+1])
       criter_change = criter_change / mean(abs.(criter[nloop-kstop+1:nloop]))
-
-      if criter_change .< f_reltol
-        exitflag = 1
-        if verbose
-          println("The best point has improved in last $(num2str(kstop)) loops by less than the threshold $(num2str(f_reltol))")
-          println("Convergency has achieved based on objective function criteria!!!")
-        end
-      end
     end
     # End of the Outer Loops
   end
 
-  if verbose
-    @printf("Search was stopped at trial number: %d \n", icall)
-    println("Normalized geometric range = $(num2str(gnrng))")
-    println("The best point has improved in last $(num2str(kstop)) LOOPS BY $(num2str(criter_change))")
+  if exitflag == ReturnCode.Default
+    if num_evals >= maxn
+      exitflag = ReturnCode.MaxIters
+    elseif gnrng <= x_reltol
+      exitflag = ReturnCode.Success
+    elseif criter_change <= f_reltol
+      exitflag = ReturnCode.Stalled
+    else
+      exitflag = ReturnCode.Failure
+    end
   end
+  verbose && show_status(exitflag, maxn)
+
   bestx, bestf, exitflag
 end
