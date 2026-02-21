@@ -43,8 +43,8 @@ end
 
 ## RANDOM ----------------------------------------------------------------------
 set_seed(seed=1) = Random.seed!(seed)
-mrand() = rand()
-mrand(n) = rand(n)
+# mrand() = rand()
+# mrand(n) = rand(n)
 
 # using MATLAB
 # set_seed(seed=1) = mat"rand('seed', $seed);"

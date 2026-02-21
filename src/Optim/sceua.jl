@@ -1,5 +1,5 @@
 function sceua(fn::Function, x0::Vector{FT}, bl::Vector{FT}, bu::Vector{FT}, args...;
-    verbose=false, parallel=true,
+    verbose=true, parallel=true,
     maxn=1000, kstop=5, f_reltol=0.0001, x_reltol=0.0001,
     n_param=length(x0), # ignore this
     # 核心参数
