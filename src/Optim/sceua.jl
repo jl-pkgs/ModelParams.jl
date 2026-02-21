@@ -1,33 +1,34 @@
 function sceua(fn::Function, x0::Vector{FT}, bl::Vector{FT}, bu::Vector{FT}, args...;
   verbose=false, parallel=true,
-  maxn=1000, kstop=5, f_reltol=0.0001, x_reltol=0.0001, n_complex=5,
+  maxn=1000, kstop=5, f_reltol=0.0001, x_reltol=0.0001,
+  n_param=length(x0), # ignore this
+  # 核心参数
+  n_complex=5,
+  size_complex=2 * n_param + 1,
+  size_simplex=n_param + 1,
+  n_evolu=size_complex,
+  n_pop=size_complex * n_complex,
+  # 其他参数
   seed=1, include_initial=1, kw...) where {FT<:Real}
 
   exitflag = ReturnCode.Default
   set_seed(seed)
 
-  # Initialize SCE parameters:
-  n_param = length(x0)
-  npg = 2 * n_param + 1
-  nps = n_param + 1
-  n_evolu = npg
-  n_popu = npg * n_complex
-
+  # Create an initial population to fill array x[n_pop, n_param]:
   bound = bu - bl
-  # Create an initial population to fill array x[npt,nopt]:
 
   main_rng = _rng_from_seed(_rng_seed(seed, 0, 0))
-  x = zeros(FT, n_popu, n_param)
-  for i = 1:n_popu
+  x = zeros(FT, n_pop, n_param)
+  for i = 1:n_pop
     x[i, :] = bl + rand(main_rng, FT, n_param) .* bound
   end
   include_initial == 1 && (x[1, :] = x0)
 
   _fn(i, _args...; _kw...) = fn(x[i, :], _args...; _kw...) |> sanitize
-  xf = FT.(par_map(_fn, 1:n_popu, args...; kw..., parallel, use_deepcopy=true))
+  xf = FT.(par_map(_fn, 1:n_pop, args...; kw..., parallel, use_deepcopy=true))
 
   # 判定标准
-  num_evals = n_popu
+  num_evals = n_pop
   gnrng = geometric_range(x, bound)
   criter_change = 1e+5
 
@@ -49,10 +50,11 @@ function sceua(fn::Function, x0::Vector{FT}, bl::Vector{FT}, bu::Vector{FT}, arg
 
   while num_evals .< maxn && gnrng > x_reltol && criter_change .> f_reltol
     nloop = nloop + 1
+
     # Loop on complexes [sub-populations]
     @par parallel for igs = 1:n_complex
       # Partition the population into complexes [sub-populations]
-      k1 = 1:npg
+      k1 = 1:size_complex
       k2 = (k1 .- 1) .* n_complex .+ igs
       cx = x[k2, :]
       cf = xf[k2]
@@ -62,19 +64,19 @@ function sceua(fn::Function, x0::Vector{FT}, bl::Vector{FT}, bu::Vector{FT}, arg
       eval_kw = local_kw[tid]
 
       # Evolve sub-population igs for nspl steps:
-      lcs = zeros(Int, nps)
+      lcs = zeros(Int, size_simplex)
       local_num_evals = 0
 
       for loop = 1:n_evolu
         rng = _rng_from_seed(_rng_seed(seed, nloop, igs, loop))
-        
+
         # Select simplex by sampling the complex according to a linear
         # probability distribution
         lcs[1] = 1
-        for k3 = 2:nps
+        for k3 = 2:size_simplex
           lpos = 1
           for iter = 1:1000
-            lpos = 1 + floor(npg + 0.5 - sqrt((npg + 0.5)^2 - npg * (npg + 1) * rand(rng)))
+            lpos = 1 + floor(size_complex + 0.5 - sqrt((size_complex + 0.5)^2 - size_complex * (size_complex + 1) * rand(rng)))
             idx = findall(lcs[1:k3-1] .== lpos)
             isempty(idx) && break
           end
@@ -82,7 +84,7 @@ function sceua(fn::Function, x0::Vector{FT}, bl::Vector{FT}, bu::Vector{FT}, arg
         end
         lcs = sort(lcs)
         # Construct the simplex:
-        s = zeros(FT, nps, n_param)
+        s = zeros(FT, size_simplex, n_param)
         s = cx[lcs, :]
         sf = cf[lcs]
 
