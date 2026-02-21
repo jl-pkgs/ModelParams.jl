@@ -1,4 +1,4 @@
-kw = (; maxn=1e4, kstop=10, pcento=0.1, peps=0.001, iseed=1, iniflg=0)
+kw = (; maxn=1e4, kstop=10, f_reltol=0.001, x_reltol=0.001, iniflg=0)
 
 @testset "functn1" begin
   function functn1(x::Vector{Float32})
