@@ -41,3 +41,23 @@ end
 
     watercons::AbstractWaterConsGPPModel{FT} = β_GPP_Zhang2019{FT}()
 end
+
+##
+@testset "ModelParams update!" begin
+    FT = Float64
+    model = Photosynthesis_Rong2018{FT}()
+
+    params = parameters(model)
+    # params |> DataFrame
+
+    parnames = [:kQ, :VCmax25, :VPDmin]
+    inds = indexin(parnames, params.name)
+    paths = params.path[inds]
+
+    parvalues = [0.6, 10., 0.8]
+    @time update!(model, paths, parvalues; params)
+
+    @test model.kQ == 0.6
+    @test model.VCmax25 == 10.
+    @test model.watercons.VPDmin == 0.8
+end

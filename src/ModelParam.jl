@@ -1,94 +1,138 @@
-import FieldMetadata: @metadata, @units, units
+export parameters, update!
+export @make_layers_struct, AbstractLayers
 
-@metadata bounds nothing
+using DataFrames
 
-abstract type AbstractModel{FT} end
+abstract type AbstractLayers{FT,S} end
+# abstract type AbstractModel{FT} end
 
-function unlist(list::Vector)
-    res = []
-    for x in list
-        isa(x, Vector) ? append!(res, unlist(x)) : push!(res, x)
+macro make_layers_struct(sname, sname_new=nothing)
+    isnothing(sname_new) && (sname_new = Symbol(sname, :Layers))
+
+    stype = getfield(__module__, sname)
+    names_list = collect(fieldnames(stype))
+    types_list = fieldtypes(stype)
+
+    x = stype{Float64}() # for default values
+    values = map(fname -> getfield(x, fname), names_list)
+
+    field_expressions = []
+    # push!(field_expressions, :(ntime::Int = 100))
+    for (i, fname) in enumerate(names_list)
+        ftype = types_list[i]
+        value = values[i]
+        ftype <: AbstractVector && continue
+        push!(field_expressions, :($fname::Vector{FT} = fill($value, N)))
     end
-    return map(x -> x, res)
+
+    quote
+        @with_kw mutable struct $sname_new{FT,N} <: AbstractLayers{FT,$sname}
+            $(field_expressions...)
+        end
+    end |> esc
+end
+
+has_definedbounds(x) = false
+has_definedbounds(x::AbstractLayers) = true
+
+function get_params(x::T; path=[]) where {FT,S,T<:AbstractLayers{FT,S}}
+    N = length(getfield(x, first(fieldnames(T))))
+    res = map(fieldnames(T)) do field
+        value = getfield(x, field)
+        _path = [path..., field]
+        bound = bounds(S, field)
+        map(i -> (; path=[_path..., i], name=field,
+                value=value[i], type=eltype(value), bound=bound), 1:N)
+    end
+    vcat(res...)
 end
 
 
-_fieldname(x, field::Symbol) = field
+# 把 bounds 分解成字段路径和对应的约束
+function split_bounds(x::S) where {S}
+    function use_predef(field)
+        # 如果是一个结构体，则采用递归的方式
+        value = getfield(x, field)
+        has_definedbounds(value) || isstructtype(typeof(value))
+    end
+    fields = fieldnames(S)
+    (filter(use_predef, fields), filter(!use_predef, fields))
+end
 
-"递归获取模型参数属性"
-function get_ModelParamRecur(x::T, path=Vector{Symbol}(); fun=bounds) where {FT,T<:AbstractModel{FT}}
-    fileds = fieldnames(T) |> collect
-    map(field -> begin
+
+function get_params(x::S; path=[]) where {S}
+    fs_predef, fs_macro = split_bounds(x)
+
+    res_predef = map(field -> begin
             value = getfield(x, field)
-            _path = [path..., field]
-            r = fun(x, field)
-            TYPE = typeof(value)
+            get_params(value; path=[path..., field])
+        end, fs_predef)
 
-            if TYPE == FT
-                return (_path => r)
-            elseif TYPE <: AbstractModel
-                get_ModelParamRecur(value, _path; fun)
-            elseif isMultiModels(value)
-                map(i -> begin
-                        _path2 = [_path..., i]
-                        get_ModelParamRecur(value[i], _path2; fun)
-                    end, 1:length(value))
-            else
-                return []
-            end
-        end, fileds) |> unlist
+    res_macro = map(field -> begin
+            # @show bounds(x, field)
+            value = getfield(x, field)
+            (; path=[path..., field], name=field,
+                value, type=eltype(value), bound=bounds(x, field))
+        end, fs_macro)
+    res = vcat(res_macro..., res_predef...)
+    filter(x -> !isnothing(x.bound), res)
 end
 
 
-isMultiModels(value) = isa(value, Vector) && eltype(typeof(value)) <: AbstractModel
-
-function Params(model::AbstractModel; na_rm::Bool=true)
-    _names = get_ModelParamRecur(model; fun=_fieldname)
-    _bounds = get_ModelParamRecur(model; fun=bounds)
-    _values = get_ModelParamRecur(model; fun=getfield)
-    _units = get_ModelParamRecur(model; fun=units)
-
-    # 返回NamedTuple向量，符合Tables接口
-    params = [
-        (name=last(n), value=last(v), bound=last(b), unit=last(u), path=first(n))
-        for (n, v, u, b) in zip(_names, _values, _units, _bounds)] |> DataFrame
-
-    lgl = (map(x -> !isnothing(x), params.bound)) # bounds不为NaN的params
-    na_rm && (params = params[lgl, :])
-    return params
-end
-
-
-function update!(model::AbstractModel{FT}, paths::Vector, values::Vector{FT},
-    ; params::Union{Nothing,DataFrame}=nothing) where {FT}
-    isnothing(params) && (params = Params(model))
+function update!(model::S, paths::Vector, values::Vector{FT},
+    ; params::Union{Nothing,DataFrame}=nothing) where {S,FT}
+    isnothing(params) && (params = parameters(model))
 
     for (path, value) in zip(paths, values)
         rows = filter(row -> row.path == path, params)
-        @assert size(rows, 1) == 1 "Duplicated parameters are not allowed!"
-        update!(model, rows.path[1], value)
+        if isempty(rows)
+            error("Parameter path $(path) not found in model!")
+        elseif size(rows, 1) > 1
+            error("Duplicated parameters found for path $(path)!")
+        end
+        update!(model, rows.path[1], value; type=rows.type[1])
     end
 end
 
-function update!(model::AbstractModel{FT}, path::Vector, value::FT) where {FT}
+function update!(model::S, path::Vector, value::FT; type::Type) where {S,FT}
     if length(path) == 1
-        setfield!(model, path[1], value)
+        # @show model, path[1], value
+        setfield!(model, path[1], type(value))
     elseif length(path) > 1
         submodel = getfield(model, path[1]) # 
-        if isMultiModels(submodel) # 如果是多模型
+
+        if isa(submodel, Vector) # 如果是多模型
             models = submodel
             i = path[2]
-            update!(models[i], path[3:end], value)
+
+            if typeof(models[i]) == FT
+                models[i] = type(value)
+                return
+            end
+            # 下面是应对Struct Vector
+            update!(models[i], path[3:end], value; type)
         else
-            update!(submodel, path[2:end], value)
+            update!(submodel, path[2:end], value; type)
         end
     end
 end
 
-function get_bound(bound::Vector)
-    lower = map(x -> x[1], bound)
-    upper = map(x -> x[2], bound)
-    lower, upper
+function parameters(model; paths=nothing)
+    params = get_params(model) |> DataFrame
+    if !isnothing(paths)
+        inds = indexin(paths, params.path)
+        params = params[inds, :]
+    end
+    return params
 end
 
-get_bound(params::DataFrame) = get_bound(params.bound)
+function get_opt_info(model)
+    df = parameters(model)
+    x0 = Float64.(df.value)
+    lb = Float64[b[1] for b in df.bound]
+    ub = Float64[b[2] for b in df.bound]
+    paths = df.path
+    return x0, lb, ub, paths
+end
+
+export get_params, parameters, update!
