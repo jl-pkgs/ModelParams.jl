@@ -126,8 +126,8 @@ function parameters(model; paths=nothing)
     return params
 end
 
-function get_opt_info(model)
-    df = parameters(model)
+function get_opt_info(model; paths=nothing)
+    df = parameters(model; paths)
     x0 = Float64.(df.value)
     lb = Float64[b[1] for b in df.bound]
     ub = Float64[b[2] for b in df.bound]
