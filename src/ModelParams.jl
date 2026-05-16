@@ -3,7 +3,7 @@ module ModelParams
 
 export AbstractModel
 export Params, update!
-export @bounds, @units
+export @bounds, @units, bounds, units
 export par_map, @par
 
 using DataFrames
@@ -17,9 +17,10 @@ function unlist(list::Vector)
 end
 
 
-import FieldMetadata: @metadata, @units, units
+import FieldMetadata: @metadata
 
 @metadata bounds nothing
+@metadata units ""
 
 abstract type AbstractModel{FT} end
 

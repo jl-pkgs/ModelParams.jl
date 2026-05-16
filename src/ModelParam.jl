@@ -35,14 +35,16 @@ end
 has_definedbounds(x) = false
 has_definedbounds(x::AbstractLayers) = true
 
-function get_params(x::T; path=[]) where {FT,S,T<:AbstractLayers{FT,S}}
+function get_params(x::T; path=[], with_unit=true) where {FT,S,T<:AbstractLayers{FT,S}}
     N = length(getfield(x, first(fieldnames(T))))
     res = map(fieldnames(T)) do field
         value = getfield(x, field)
         _path = [path..., field]
         bound = bounds(S, field)
+        unit = with_unit ? units(S, field) : ""
+
         map(i -> (; path=[_path..., i], name=field,
-                value=value[i], type=eltype(value), bound=bound), 1:N)
+                value=value[i], type=eltype(value), bound, unit), 1:N)
     end
     vcat(res...)
 end
@@ -60,7 +62,7 @@ function split_bounds(x::S) where {S}
 end
 
 
-function get_params(x::S; path=[]) where {S}
+function get_params(x::S; path=[], with_unit=true) where {S}
     fs_predef, fs_macro = split_bounds(x)
 
     res_predef = map(field -> begin
@@ -71,8 +73,9 @@ function get_params(x::S; path=[]) where {S}
     res_macro = map(field -> begin
             # @show bounds(x, field)
             value = getfield(x, field)
+            unit = with_unit ? units(S, field) : ""
             (; path=[path..., field], name=field,
-                value, type=eltype(value), bound=bounds(x, field))
+                value, type=eltype(value), bound=bounds(x, field), unit)
         end, fs_macro)
     res = vcat(res_macro..., res_predef...)
     filter(x -> !isnothing(x.bound), res)
@@ -117,12 +120,14 @@ function update!(model::S, path::Vector, value::FT; type::Type) where {S,FT}
     end
 end
 
-function parameters(model; paths=nothing)
-    params = get_params(model) |> DataFrame
+function parameters(model; paths=nothing, with_unit=true)
+    params = get_params(model; with_unit) |> DataFrame
     if !isnothing(paths)
         inds = indexin(paths, params.path)
         params = params[inds, :]
     end
+
+    length(unique(params.unit)) == 1 && (params = params[:, Not(:unit)])
     return params
 end
 

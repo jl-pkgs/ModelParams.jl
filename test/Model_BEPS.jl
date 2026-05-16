@@ -80,7 +80,6 @@ end
 end
 
 ##
-
 @testset "Model_BEPS" begin
     model = ParamBEPS{Float64}()
     params = parameters(model)

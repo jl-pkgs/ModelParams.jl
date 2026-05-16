@@ -11,7 +11,7 @@ abstract type AbstractWaterConsGPPModel{FT} <: AbstractModel{FT} end
 abstract type AbstractPhotosynthesisModel{FT} <: AbstractModel{FT} end
 
 
-# # 气孔导度
+# 气孔导度
 # abstract type AbstractStomatalModel{FT} <: AbstractModel{FT} end
 @bounds @units @with_kw mutable struct β_GPP_Zhang2019{FT} <: AbstractWaterConsGPPModel{FT}
     ## water constraint
@@ -43,12 +43,12 @@ end
 end
 
 ##
-@testset "ModelParams update!" begin
+@testset "Model_PML" begin
     FT = Float64
     model = Photosynthesis_Rong2018{FT}()
 
     params = parameters(model)
-    # params |> DataFrame
+    @test length(unique(params.unit)) == 5
 
     parnames = [:kQ, :VCmax25, :VPDmin]
     inds = indexin(parnames, params.name)
