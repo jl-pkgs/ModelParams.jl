@@ -23,33 +23,24 @@ end
 @make_layers_struct VanGenuchten
 @make_layers_struct Campbell
 
-const ParamSoilHydraulic{FT,N} = Union{VanGenuchtenLayers{FT,N},CampbellLayers{FT,N}} where {FT<:AbstractFloat,N}
 
-@with_kw mutable struct ParamSoil{FT<:AbstractFloat,N}
-    hydraulic::ParamSoilHydraulic{FT,N} = VanGenuchtenLayers{FT,N}()
+const SoilHydraulic{FT,N} = Union{VanGenuchtenLayers{FT,N},CampbellLayers{FT,N}} where {FT<:AbstractFloat,N}
+
+@with_kw mutable struct SoilModel{FT<:AbstractFloat,N}
+    hydraulic::SoilHydraulic{FT,N} = VanGenuchtenLayers{FT,N}()
     # thermal::ParamSoilThermal{FT} = ParamSoilThermal{FT}()
 end
 
-
-@generated function Layers(p::P, N::Int) where {FT, P<:AbstractSoilParam{FT}}
-    LayersName = Symbol(P.name.name, :Layers)
-    kwargs = [:($(f) = fill(p.$f, N)) for f in fieldnames(P)]
-    quote
-        $LayersName{$FT,N}($(kwargs...))
-    end
+function SoilModel(p::P, N::Int) where {FT, P<:AbstractSoilParam{FT}}
+    SoilModel{FT,N}(hydraulic=Layers(p, N))
 end
-
-function ParamSoil(p::P, N::Int) where {FT, P<:AbstractSoilParam{FT}}
-    ParamSoil{FT,N}(hydraulic=Layers(p, N))
-end
-
 
 ##
-model = ParamSoil{Float64,1}()
-model = ParamSoil{Float64,4}()
+model = SoilModel{Float64,1}()
+model = SoilModel{Float64,4}()
 parameters(model)
 
 ##
 p = Campbell(; b=2.0)
-model = ParamSoil(p, 4)
+model = SoilModel(p, 4)
 parameters(model)

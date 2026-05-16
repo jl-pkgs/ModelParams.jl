@@ -1,5 +1,5 @@
 export parameters, update!
-export @make_layers_struct, AbstractLayers
+export @make_layers_struct, AbstractLayers, Layers
 
 using DataFrames
 
@@ -30,6 +30,18 @@ macro make_layers_struct(sname, sname_new=nothing)
             $(field_expressions...)
         end
     end |> esc
+end
+
+@generated function Layers(p::P, N::Int) where {P}
+    FT = Float64
+    for ft in fieldtypes(P)
+        ft <: AbstractFloat && (FT = ft; break)
+    end
+    LayersRef = GlobalRef(parentmodule(P), Symbol(nameof(P), :Layers))
+    kwargs = [:($(f) = fill(p.$f, N)) for f in fieldnames(P)]
+    quote
+        $LayersRef{$FT,N}($(kwargs...))
+    end
 end
 
 has_definedbounds(x) = false
