@@ -58,7 +58,8 @@ function get_params(x::T; path=[], with_unit=true) where {FT,S,T<:AbstractLayers
         map(i -> (; path=[_path..., i], name=field,
                 value=value[i], type=eltype(value), bound, unit), 1:N)
     end
-    vcat(res...)
+    res = vcat(res...)
+    filter(x -> !isnothing(x.bound), res)
 end
 
 

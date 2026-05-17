@@ -24,23 +24,29 @@ end
 @make_layers_struct Campbell
 
 
+@bounds @units @with_kw mutable struct ParamThermal{FT<:AbstractFloat}
+    κ::FT = FT(0.2) | (0.1, 10.0) | "W m-1 K-1"     # thermal conductivity
+    cv::FT = FT(2.0e6) | (1.0e6, 5.0e6) | "J m-3 K-1" # soil bulk density [kg m-3]
+end
+
+@make_layers_struct ParamThermal
+
 const SoilHydraulic{FT,N} = Union{VanGenuchtenLayers{FT,N},CampbellLayers{FT,N}} where {FT<:AbstractFloat,N}
 
-@with_kw mutable struct SoilModel{FT<:AbstractFloat,N}
-    hydraulic::SoilHydraulic{FT,N} = VanGenuchtenLayers{FT,N}()
-    # thermal::ParamSoilThermal{FT} = ParamSoilThermal{FT}()
-end
-
-function SoilModel(p::P, N::Int) where {FT, P<:AbstractSoilParam{FT}}
-    SoilModel{FT,N}(hydraulic=Layers(p, N))
+@with_kw mutable struct SoilModel{FT<:AbstractFloat}
+    N::Int = 5
+    hydraulic::SoilHydraulic{FT} = VanGenuchtenLayers{FT,N}()
+    thermal::ParamThermalLayers{FT} = ParamThermalLayers{FT,N}()
 end
 
 ##
-model = SoilModel{Float64,1}()
-model = SoilModel{Float64,4}()
+# FT = Float64
+# N = 5
+model = SoilModel{Float64}(; N=1)
+model = SoilModel{Float64}(; N=5)
 parameters(model)
 
 ##
-p = Campbell(; b=2.0)
-model = SoilModel(p, 4)
-parameters(model)
+# p = Campbell(; b=2.0)
+# model = SoilModel(p, 4)
+# parameters(model)
