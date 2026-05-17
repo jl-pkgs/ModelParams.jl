@@ -1,12 +1,15 @@
 module ModelParams
 
-
 export AbstractModel
-export Params, update!
-export @bounds, @units, bounds, units
+export Params, update!, @bounds, @units, bounds, units
 export par_map, @par
 
+
 using DataFrames
+import FieldMetadata: @metadata
+@metadata bounds nothing
+@metadata units ""
+
 
 function unlist(list::Vector)
     res = []
@@ -17,10 +20,14 @@ function unlist(list::Vector)
 end
 
 
-import FieldMetadata: @metadata
+function get_bound(bound::Vector)
+    lower = map(x -> x[1], bound)
+    upper = map(x -> x[2], bound)
+    lower, upper
+end
 
-@metadata bounds nothing
-@metadata units ""
+get_bound(params::DataFrame) = get_bound(params.bound)
+
 
 abstract type AbstractModel{FT} end
 
