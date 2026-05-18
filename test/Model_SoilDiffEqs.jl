@@ -33,10 +33,11 @@ end
 
 const SoilHydraulic{FT,N} = Union{VanGenuchtenLayers{FT,N},CampbellLayers{FT,N}} where {FT<:AbstractFloat,N}
 
-@with_kw mutable struct SoilModel{FT<:AbstractFloat}
+@bounds @with_kw mutable struct SoilModel{FT<:AbstractFloat}
     N::Int = 5
     hydraulic::SoilHydraulic{FT} = VanGenuchtenLayers{FT,N}()
     thermal::ParamThermalLayers{FT} = ParamThermalLayers{FT,N}()
+    thermal_hide::ParamThermalLayers{FT} = ParamThermalLayers{FT,N}() | nothing
 end
 
 ##

@@ -63,15 +63,31 @@ function get_params(x::T; path=[], with_unit=true) where {FT,S,T<:AbstractLayers
 end
 
 
+# 检查某字段是否在父结构体上明确定义了 bound = nothing（即显式隐藏）
+# FieldMetadata 对有 `| val` 的字段生成特化方法 sig[2] == Type{<:T}，
+# 无注解字段则退回到泛型方法 sig[2] == Type
+function is_explicitly_hidden(T::Type, field)
+    field isa Symbol || return false # 为了应对Vector field
+    m = which(bounds, Tuple{Type{T},Type{Val{field}}})
+    m.sig.parameters[2] !== Type && isnothing(bounds(T, Val{field}))
+end
+
 # 把 bounds 分解成字段路径和对应的约束
 function split_bounds(x::S) where {S}
-    function use_predef(field)
-        # 如果是一个结构体，则采用递归的方式
+    function categorize(field)
+        is_explicitly_hidden(S, field) && return :skip
         value = getfield(x, field)
-        has_definedbounds(value) || isstructtype(typeof(value))
+        T = typeof(value)
+        # 不递归进 Array/Tuple 等内建类型，直接当普通字段处理（无 bound 则过滤掉）
+        (T <: AbstractArray || T <: Tuple) && return :macro
+        (has_definedbounds(value) || isstructtype(T)) ? :predef : :macro
     end
     fields = fieldnames(S)
-    (filter(use_predef, fields), filter(!use_predef, fields))
+    (
+        filter(f -> categorize(f) == :predef, fields),
+        filter(f -> categorize(f) == :macro, fields)
+        # :skip 的字段完全略过
+    )
 end
 
 
