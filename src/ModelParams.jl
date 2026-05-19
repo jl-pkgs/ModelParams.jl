@@ -4,11 +4,8 @@ export AbstractModel
 export Params, update!, @bounds, @units, bounds, units
 export par_map, @par
 
-
 using DataFrames
-import FieldMetadata: @metadata
-@metadata bounds nothing
-@metadata units ""
+
 
 
 function unlist(list::Vector)
@@ -35,6 +32,10 @@ include("parallel.jl")
 include("ModelParam.jl")
 include("GOF.jl")
 include("Optim/Optim.jl")
+include("metadata.jl")
+
+export bounds, units, @bounds, @units
+
 
 
 end

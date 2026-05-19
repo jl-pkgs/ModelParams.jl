@@ -64,12 +64,13 @@ end
 
 
 # 检查某字段是否在父结构体上明确定义了 bound = nothing（即显式隐藏）
-# FieldMetadata 对有 `| val` 的字段生成特化方法 sig[2] == Type{<:T}，
+# ModelParamsdata 对有 `| val` 的字段生成特化方法 sig[2] == Type{<:T}，
 # 无注解字段则退回到泛型方法 sig[2] == Type
 function is_explicitly_hidden(T::Type, field)
-    field isa Symbol || return false # 为了应对Vector field
-    m = which(bounds, Tuple{Type{T},Type{Val{field}}})
-    m.sig.parameters[2] !== Type && isnothing(bounds(T, Val{field}))
+    field isa Symbol || return false
+    m = which(_meta, Tuple{Type{T},Val{field},Val{:bounds}})
+    sig = Base.unwrap_unionall(m.sig)
+    sig.parameters[2] !== Type && isnothing(_meta(T, Val{field}(), Val{:bounds}()))
 end
 
 # 把 bounds 分解成字段路径和对应的约束
