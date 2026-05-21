@@ -6,10 +6,13 @@ using DataFrames
 abstract type AbstractLayers{FT,S} end
 # abstract type AbstractModel{FT} end
 
-macro make_layers_struct(sname, sname_new=nothing)
+macro make_layers_struct(sname, sname_new=nothing, base_type=:AbstractLayers)
     isnothing(sname_new) && (sname_new = Symbol(sname, :Layers))
 
     stype = getfield(__module__, sname)
+    btype = getfield(__module__, base_type)
+    # btype = base_type isa Symbol ? getfield(__module__, base_type) : base_type
+
     names_list = collect(fieldnames(stype))
     types_list = fieldtypes(stype)
 
@@ -26,7 +29,7 @@ macro make_layers_struct(sname, sname_new=nothing)
     end
 
     quote
-        @with_kw mutable struct $sname_new{FT,N} <: AbstractLayers{FT,$sname}
+        @with_kw mutable struct $sname_new{FT,N} <: $btype{FT,$sname}
             $(field_expressions...)
         end
     end |> esc
