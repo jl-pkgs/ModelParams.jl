@@ -72,8 +72,7 @@ end
     κ::FT = FT(0.2) | (0.1, 10.0) | "W m-1 K-1"
     cv::FT = FT(2.0e6) | (1.0e6, 5.0e6) | "J m-3 K-1"
 end
-
-@make_layers_struct ParamThermal
+@make_layers_struct ParamThermal ParamThermalLayers
 
 function build_param_thermal(thermal::ParamThermalLayers{FT}, N::Int) where {FT}
     Np = length(thermal)
@@ -121,10 +120,10 @@ _sync_ksat!(kv, param_hydraulic, dz_cm) = nothing
     dz_cm::Vector{FT} = FT[]                                # layer thicknesses [cm]; set to enable integral Ksat for exponential profiles
 
     hydraulic::SoilHydraulic{FT} = Layers(default_hydraulic(FT), Np)
-    thermal::ParamThermalLayers{FT} = Layers(ParamThermal{FT}(), Np)
+    param_hydraulic::Vector{P} = build_params(hydraulic, N)
     kv_profile::Union{AbstractKv,AbstractKvLayers} = default_kv_profile(hydraulic, N)  # Ksat depth profile; default = per-layer hydraulic Ksat
 
-    param_hydraulic::Vector{P} = build_params(hydraulic, N)
+    thermal::ParamThermalLayers{FT} = Layers(ParamThermal{FT}(), Np)
     param_thermal::ParamThermalLayers{FT} = build_param_thermal(thermal, N) | nothing
 end
 
@@ -141,7 +140,9 @@ function SoilModel(hydraulic::SoilHydraulic{FT}, N::Int;
 
     isnothing(kv_profile) && (kv_profile = default_kv_profile(hydraulic, N))
     _sync_ksat!(kv_profile, param_hydraulic, dz_cm_vec)
-    SoilModel{FT,P}(N, Np, dz_cm_vec, hydraulic, thermal, kv_profile, param_hydraulic, param_thermal)
+    SoilModel{FT,P}(N, Np, dz_cm_vec,
+        hydraulic, param_hydraulic, kv_profile,
+        thermal, param_thermal)
 end
 
 # 默认开启的是多层参数
@@ -149,16 +150,6 @@ function SoilModel(p::AbstractSoilParam{FT}, N::Int, Np::Int=N; kw...) where {FT
     hydraulic = Layers(p, Np)
     SoilModel(hydraulic, N; kw...)
 end
-
-##
-FT = Float64
-N = 5
-p = VanGenuchten{FT}(; θ_sat=0.4, θ_res=0.1, Ksat=2.0, α=0.01, n=2.0)
-model = SoilModel(p, 1)
-model = SoilModel(p, N)
-# model = SoilModel{Float64}(; N=1)
-# model = SoilModel{Float64}(; N=5)
-parameters(model)
 
 ##
 # p = Campbell(; b=2.0)

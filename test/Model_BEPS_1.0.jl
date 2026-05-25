@@ -1,7 +1,24 @@
-# Builds on Model_BEPS.jl (ParamVeg, ParamSoilThermal, ParamSoilThermalLayers)
-# and Model_SoilDiffEqs.jl (Campbell, CampbellLayers, SoilHydraulic)
+# 水力参数
+@bounds @with_kw mutable struct ParamSoilHydraulic{FT<:AbstractFloat}
+    θ_vfc::FT = FT(0.30) | (0.10, 0.45)   # volumetric field capacity [-]
+    θ_vwp::FT = FT(0.10) | (0.02, 0.30)   # volumetric wilting point [-]
+    θ_sat::FT = FT(0.45) | (0.25, 0.70)   # volumetric saturation [-]
 
-@bounds @with_kw_noshow mutable struct ParamBEPS2{FT<:AbstractFloat}
+    K_sat::FT = FT(5.0) | (0.01, 50.0)   # saturated hydraulic conductivity [cm h-1]
+
+    ψ_sat::FT = FT(-0.5) | (-2.0, -0.01)  # matric potential at saturation [m]
+    b::FT = FT(5.0) | (1.5, 15.0)    # Campbell parameter [-]
+end
+@make_layers_struct ParamSoilHydraulic
+
+
+@with_kw mutable struct ParamSoil{FT<:AbstractFloat}
+    hydraulic::ParamSoilHydraulic{FT} = ParamSoilHydraulic{FT}()
+    thermal::ParamSoilThermal{FT} = ParamSoilThermal{FT}()
+end
+
+
+@bounds @with_kw_noshow mutable struct ParamBEPS{FT<:AbstractFloat}
     N::Int = 5
     dz::Vector{FT} = FT[0.05, 0.10, 0.20, 0.40, 1.25]  # 土壤层厚度 [m], BEPS V2023
     r_drainage::FT = Cdouble(0.50) | (0.2, 0.7)  # ? 地表排水速率（地表汇流），可考虑采用曼宁公式
@@ -9,15 +26,15 @@
     ψ_min::FT = Cdouble(33.0)  # [m], about 0.10~0.33 MPa开始胁迫点
     alpha::FT = Cdouble(0.4)   # [-], 土壤水限制因子参数，He 2017 JGR-B, Eq. 4
 
-    hydraulic::SoilHydraulic{FT,N} = CampbellLayers{FT,N}()
+    hydraulic::ParamSoilHydraulicLayers{FT} = ParamSoilHydraulicLayers{FT,N}()
     thermal::ParamSoilThermalLayers{FT} = ParamSoilThermalLayers{FT,N}()
 
     veg::ParamVeg{FT} = ParamVeg{FT}()
 end
 
 ##
-@testset "Model_BEPS_2.0" begin
-    model = ParamBEPS2{Float64}()
+@testset "Model_BEPS" begin
+    model = ParamBEPS{Float64}()
     params = parameters(model)
 
     opts = [
