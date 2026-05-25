@@ -1,5 +1,6 @@
 export build_params, ParamThermal
 export AbstractKvProfile, AbstractKv, AbstractKvLayers
+export Kv, KvLayers, KvExp, KvExpLayers, KvExpConst, KvExpPiecewise
 
 using ModelParams, Parameters
 import ModelParams: bounds, units, @bounds, @units, @make_layers_struct
@@ -43,75 +44,16 @@ end
     θ_sat::T = 0.287 | (0.25, 0.50) | "m3 m-3"
     ψ_sat::T = -10.0 | (-100.0, -5.0) | "cm"
     Ksat::T = 34.0 | nothing | "cm h-1"   # [cm h-1]; overridden by kv_profile when set
-    b::T = 4.0 | (3.0, 15.0) | "-"
+    b::T = 4.0 | (2.0, 15.0) | "-"
     θ_fc::T = 0.2 | nothing | "m3 m-3"           # field capacity, optional
 end
 
 @make_layers_struct VanGenuchten
 @make_layers_struct Campbell
-
-@bounds @units @with_kw mutable struct ParamThermal{FT<:AbstractFloat}
-    κ::FT = FT(0.2) | (0.1, 10.0) | "W m-1 K-1"
-    cv::FT = FT(2.0e6) | (1.0e6, 5.0e6) | "J m-3 K-1"
-end
-
-@make_layers_struct ParamThermal
-
-const SoilHydraulic{FT,N} = Union{VanGenuchtenLayers{FT,N},CampbellLayers{FT,N}}
-
-
-## Kv
-"""Exponential decline: Ksat(z) = kv_0 · exp(−f · z)"""
-@bounds @units @with_kw mutable struct KvExponential{T<:Real} <: AbstractKv{T}
-    kv_0::T = 34.0 | (0.002, 100.0) | "cm h-1"   # surface Ksat
-    f::T = 10.0 | (1.0, 100.0) | "cm-1"     # depth-decay coefficient
-end
-
-"""Exponential + constant: exponential for z < z_exp, then constant below."""
-@bounds @units @with_kw mutable struct KvExponentialConstant{T<:Real} <: AbstractKv{T}
-    kv_0::T = 34.0 | (0.002, 100.0) | "cm h-1"
-    f::T = 10.0 | (1.0, 100.0) | "cm-1"
-    z_exp::T = 100.0 | (10.0, 500.0) | "cm"    # depth at which exponential stops
-end
-
-"""
-Per-layer Ksat (scalar stub). Use KvLayeredLayers for multi-layer instances.
-Created via: `@make_layers_struct KvLayered` → `KvLayeredLayers{FT,N}` with `kv::Vector{FT}`.
-"""
-@bounds @units @with_kw mutable struct KvLayered{T<:Real} <: AbstractKv{T}
-    kv::T = 34.0 | (0.002, 60.0) | "cm h-1"
-end
-@make_layers_struct KvLayered KvLayeredLayers AbstractKvLayers
-
-function default_kv_profile(hydraulic::SoilHydraulic{FT}, N::Int) where {FT<:AbstractFloat}
-    param = build_params(hydraulic, N)
-    KvLayeredLayers{FT,N}(; kv=FT[p.Ksat for p in param])
-end
-
-"""
-Upper nlayers_kv layers: per-layer kv. Deeper layers: exponential decay from kv[nlayers_kv]
-using the corresponding f value. z_layered is derived from Soil.dz at runtime (not stored).
-Scalar stub — use KvExponentialLayers for multi-layer instances.
-"""
-@bounds @units @with_kw mutable struct KvLayeredExponential{T<:Real} <: AbstractKv{T}
-    kv::T = 34.0 | (0.002, 100.0) | "cm h-1"   # per-layer Ksat (upper layers)
-    f::T = 10.0 | (1.0, 100.0) | "cm-1"     # per-layer decay coefficient
-end
-@make_layers_struct KvLayeredExponential KvExponentialLayers AbstractKvLayers
-
-const KvLayeredExponentialLayers = KvExponentialLayers
-
-
-## 
-function build_param_thermal(thermal::ParamThermalLayers{FT}, N::Int) where {FT}
-    Np = length(thermal)
-    Np == 1 && return Layers(thermal[1], N)
-    Np == N && return thermal
-    error("thermal parameter layers length ($Np) must be 1 or match soil layers ($N).")
-end
-
 _retention_method(::VanGenuchtenLayers) = "van_Genuchten"
 _retention_method(::CampbellLayers) = "Campbell"
+
+const SoilHydraulic{FT,N} = Union{VanGenuchtenLayers{FT,N},CampbellLayers{FT,N}}
 
 function default_hydraulic(::Type{FT}, method_retention::String="van_Genuchten") where {FT<:AbstractFloat}
     if method_retention == "van_Genuchten"
@@ -125,33 +67,81 @@ function default_hydraulic(::Type{FT}, method_retention::String="van_Genuchten")
 end
 
 
+##
+@bounds @units @with_kw mutable struct ParamThermal{FT<:AbstractFloat}
+    κ::FT = FT(0.2) | (0.1, 10.0) | "W m-1 K-1"
+    cv::FT = FT(2.0e6) | (1.0e6, 5.0e6) | "J m-3 K-1"
+end
+
+@make_layers_struct ParamThermal
+
+function build_param_thermal(thermal::ParamThermalLayers{FT}, N::Int) where {FT}
+    Np = length(thermal)
+    Np == 1 && return Layers(thermal[1], N)
+    Np == N && return thermal
+    error("thermal parameter layers length ($Np) must be 1 or match soil layers ($N).")
+end
+
+## Kv profiles
+
+"""Per-layer Ksat (scalar stub). Use KvLayers for multi-layer instances."""
+@bounds @units @with_kw mutable struct Kv{T<:Real} <: AbstractKv{T}
+    kv::T = 34.0 | (0.002, 60.0) | "cm h-1"
+end
+@make_layers_struct Kv KvLayers AbstractKvLayers
+
+
+"""Exponential decline: Ksat(z) = kv · exp(−f · z)"""
+@bounds @units @with_kw mutable struct KvExp{T<:Real} <: AbstractKv{T}
+    kv::T = 34.0 | (0.002, 100.0) | "cm h-1"   # surface Ksat
+    f::T = 0.01 | (0.0, 0.1) | "cm-1"     # depth-decay coefficient
+end
+@make_layers_struct KvExp KvExpLayers AbstractKvLayers
+
+
+"""Exponential + constant: exponential for z < z_exp, then constant below."""
+@bounds @units @with_kw mutable struct KvExpConst{T<:Real} <: AbstractKv{T}
+    kv::T = 34.0 | (0.002, 100.0) | "cm h-1"
+    f::T = 0.01 | (0.0, 0.1) | "cm-1"
+    z_exp::T = 100.0 | (10.0, 500.0) | "cm"    # depth at which exponential stops
+end
+@make_layers_struct KvExpConst KvExpPiecewise AbstractKvLayers
+
+function default_kv_profile(hydraulic::SoilHydraulic{FT}, N::Int) where {FT<:AbstractFloat}
+    param_hydraulic = build_params(hydraulic, N)
+    KvLayers{FT,N}(; kv=FT[p.Ksat for p in param_hydraulic])
+end
+
+_sync_ksat!(kv, param_hydraulic, dz_cm) = nothing
+
+## 
 @bounds @with_kw mutable struct SoilModel{FT<:AbstractFloat,P<:AbstractSoilParam{FT}}
     N::Int = 5   # number of soil layers
     Np::Int = N  # number of parameter layers
+    dz_cm::Vector{FT} = FT[]                                # layer thicknesses [cm]; set to enable integral Ksat for exponential profiles
 
     hydraulic::SoilHydraulic{FT} = Layers(default_hydraulic(FT), Np)
     thermal::ParamThermalLayers{FT} = Layers(ParamThermal{FT}(), Np)
     kv_profile::Union{AbstractKv,AbstractKvLayers} = default_kv_profile(hydraulic, N)  # Ksat depth profile; default = per-layer hydraulic Ksat
-    nlayers_kv::Int = N                                     # layers using layered Ksat (KvExponential only)
-    dz_cm::Vector{FT} = FT[]                                # layer thicknesses [cm]; set to enable integral Ksat for exponential profiles
 
-    param::Vector{P} = build_params(hydraulic, N)
+    param_hydraulic::Vector{P} = build_params(hydraulic, N)
     param_thermal::ParamThermalLayers{FT} = build_param_thermal(thermal, N) | nothing
 end
 
 function SoilModel(hydraulic::SoilHydraulic{FT}, N::Int;
-    thermal=nothing, kv_profile=nothing, nlayers_kv::Int=N,
+    thermal=nothing, kv_profile=nothing,
     dz_cm::AbstractVector=FT[]) where {FT<:AbstractFloat}
     Np = length(hydraulic)
     isnothing(thermal) && (thermal = Layers(ParamThermal{FT}(), Np))
 
-    param = build_params(hydraulic, N)
+    dz_cm_vec = FT.(dz_cm)
+    param_hydraulic = build_params(hydraulic, N)
     param_thermal = build_param_thermal(thermal, N)
-    P = eltype(param)
-    dz_cm_vec = convert(Vector{FT}, dz_cm)
+    P = eltype(param_hydraulic)
+
     isnothing(kv_profile) && (kv_profile = default_kv_profile(hydraulic, N))
-    # _sync_ksat!(kv_profile, param, nlayers_kv, dz_cm_vec)
-    SoilModel{FT,P}(N, Np, hydraulic, thermal, kv_profile, nlayers_kv, dz_cm_vec, param, param_thermal)
+    _sync_ksat!(kv_profile, param_hydraulic, dz_cm_vec)
+    SoilModel{FT,P}(N, Np, dz_cm_vec, hydraulic, thermal, kv_profile, param_hydraulic, param_thermal)
 end
 
 # 默认开启的是多层参数
