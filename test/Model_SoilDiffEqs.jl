@@ -53,7 +53,7 @@ end
 _retention_method(::VanGenuchtenLayers) = "van_Genuchten"
 _retention_method(::CampbellLayers) = "Campbell"
 
-const SoilHydraulic{FT,N} = Union{VanGenuchtenLayers{FT,N},CampbellLayers{FT,N}}
+const RetentionLayers{FT,N} = Union{VanGenuchtenLayers{FT,N},CampbellLayers{FT,N}}
 
 function default_hydraulic(::Type{FT}, method_retention::String="van_Genuchten") where {FT<:AbstractFloat}
     if method_retention == "van_Genuchten"
@@ -74,11 +74,21 @@ end
 end
 @make_layers_struct ParamThermal ParamThermalLayers
 
-function build_param_thermal(thermal::ParamThermalLayers{FT}, N::Int) where {FT}
-    Np = length(thermal)
-    Np == 1 && return Layers(thermal[1], N)
-    Np == N && return thermal
-    error("thermal parameter layers length ($Np) must be 1 or match soil layers ($N).")
+## ThermalProfile: 绑定 properties（SoA）与 layers（AoS）
+@with_kw mutable struct ThermalProfile{FT<:AbstractFloat}
+    properties::ParamThermalLayers{FT}        # SoA: 热参数层 (κ, cv)
+    layers::Vector{ParamThermal{FT}}          # AoS: 分层实例
+end
+
+function ThermalProfile(properties::ParamThermalLayers{FT}, N::Int) where {FT<:AbstractFloat}
+    Np = length(properties)
+    if Np == 1
+        properties = Layers(properties[1], N)
+    elseif Np != N
+        error("thermal layers length ($Np) must be 1 or match soil layers ($N).")
+    end
+    layers = build_params(properties, N)
+    ThermalProfile{FT}(properties, layers)
 end
 
 ## Kv profiles
@@ -106,49 +116,55 @@ end
 end
 @make_layers_struct KvExpConst KvExpPiecewise AbstractKvLayers
 
-function default_kv_profile(hydraulic::SoilHydraulic{FT}, N::Int) where {FT<:AbstractFloat}
-    param_hydraulic = build_params(hydraulic, N)
-    KvLayers{FT,N}(; kv=FT[p.Ksat for p in param_hydraulic])
+function default_kv_profile(retention::RetentionLayers{FT}, N::Int) where {FT<:AbstractFloat}
+    layers = build_params(retention, N)
+    KvLayers{FT,N}(; kv=FT[p.Ksat for p in layers])
 end
 
-_sync_ksat!(kv, param_hydraulic, dz_cm) = nothing
+_sync_ksat!(kv, layers, dz_cm) = nothing
 
-## 
+## HydraulicProfile: 绑定 retention（SoA）、layers（AoS）、kv（Ksat 深度剖面）
+@with_kw mutable struct HydraulicProfile{FT<:AbstractFloat,P<:AbstractSoilParam{FT}}
+    retention::RetentionLayers{FT}                       # SoA: 持水模型层参数
+    layers::Vector{P}                                     # AoS: 分层实例
+    kv::Union{AbstractKv,AbstractKvLayers}                # Ksat 深度剖面
+end
+
+function HydraulicProfile(retention::RetentionLayers{FT}, N::Int; kv=nothing) where {FT<:AbstractFloat}
+    layers = build_params(retention, N)
+    isnothing(kv) && (kv = default_kv_profile(retention, N))
+    HydraulicProfile{FT,eltype(layers)}(retention, layers, kv)
+end
+
+##
 @bounds @with_kw mutable struct SoilModel{FT<:AbstractFloat,P<:AbstractSoilParam{FT}}
     N::Int = 5   # number of soil layers
     Np::Int = N  # number of parameter layers
     dz_cm::Vector{FT} = FT[]                                # layer thicknesses [cm]; set to enable integral Ksat for exponential profiles
 
-    hydraulic::SoilHydraulic{FT} = Layers(default_hydraulic(FT), Np)
-    param_hydraulic::Vector{P} = build_params(hydraulic, N)
-    kv_profile::Union{AbstractKv,AbstractKvLayers} = default_kv_profile(hydraulic, N)  # Ksat depth profile; default = per-layer hydraulic Ksat
-
-    thermal::ParamThermalLayers{FT} = Layers(ParamThermal{FT}(), Np)
-    param_thermal::ParamThermalLayers{FT} = build_param_thermal(thermal, N) | nothing
+    hydraulic::HydraulicProfile{FT,P} = HydraulicProfile(Layers(default_hydraulic(FT), Np), N)
+    thermal::ThermalProfile{FT} = ThermalProfile(Layers(ParamThermal{FT}(), Np), N)
 end
 
-function SoilModel(hydraulic::SoilHydraulic{FT}, N::Int;
-    thermal=nothing, kv_profile=nothing,
+function SoilModel(retention::RetentionLayers{FT}, N::Int;
+    thermal=nothing, kv=nothing,
     dz_cm::AbstractVector=FT[]) where {FT<:AbstractFloat}
-    Np = length(hydraulic)
+    Np = length(retention)
     isnothing(thermal) && (thermal = Layers(ParamThermal{FT}(), Np))
 
     dz_cm_vec = FT.(dz_cm)
-    param_hydraulic = build_params(hydraulic, N)
-    param_thermal = build_param_thermal(thermal, N)
-    P = eltype(param_hydraulic)
+    hydraulic_profile = HydraulicProfile(retention, N; kv)
+    thermal_profile = ThermalProfile(thermal, N)
+    P = eltype(hydraulic_profile.layers)
 
-    isnothing(kv_profile) && (kv_profile = default_kv_profile(hydraulic, N))
-    _sync_ksat!(kv_profile, param_hydraulic, dz_cm_vec)
-    SoilModel{FT,P}(N, Np, dz_cm_vec,
-        hydraulic, param_hydraulic, kv_profile,
-        thermal, param_thermal)
+    _sync_ksat!(hydraulic_profile.kv, hydraulic_profile.layers, dz_cm_vec)
+    SoilModel{FT,P}(N, Np, dz_cm_vec, hydraulic_profile, thermal_profile)
 end
 
 # 默认开启的是多层参数
 function SoilModel(p::AbstractSoilParam{FT}, N::Int, Np::Int=N; kw...) where {FT<:AbstractFloat}
-    hydraulic = Layers(p, Np)
-    SoilModel(hydraulic, N; kw...)
+    retention = Layers(p, Np)
+    SoilModel(retention, N; kw...)
 end
 
 ##
