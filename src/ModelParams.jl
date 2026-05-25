@@ -4,7 +4,7 @@ export AbstractModel
 export Params, update!, @bounds, @units, bounds, units
 export par_map, @par
 
-using DataFrames
+using Parameters, DataFrames
 
 
 
@@ -33,6 +33,9 @@ include("ModelParam.jl")
 include("GOF.jl")
 include("Optim/Optim.jl")
 include("metadata.jl")
+
+include("Kv_Profile.jl")
+include("Model_SoilDiffEqs.jl")
 
 export bounds, units, @bounds, @units
 

@@ -5,6 +5,17 @@ using DataFrames
 
 abstract type AbstractLayers{FT,S} end
 # abstract type AbstractModel{FT} end
+function Base.getindex(x::AbstractLayers{FT,S}, i::Int) where {FT,S}
+    kw = (; (name => getfield(x, name)[i] for name in fieldnames(typeof(x)))...)
+    return S{FT}(; kw...)
+end
+
+Base.length(x::AbstractLayers) = length(getfield(x, first(fieldnames(typeof(x)))))
+
+function Base.Vector(x::AbstractLayers{FT,S}) where {FT,S}
+    map(i -> x[i], 1:length(x))
+end
+
 
 macro make_layers_struct(sname, sname_new=nothing, base_type=:AbstractLayers)
     isnothing(sname_new) && (sname_new = Symbol(sname, :Layers))

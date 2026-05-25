@@ -1,5 +1,5 @@
 # Builds on Model_BEPS.jl (ParamVeg, ParamSoilThermal, ParamSoilThermalLayers)
-# and Model_SoilDiffEqs.jl (Campbell, CampbellLayers, RetentionLayers)
+# and Model_SoilDiffEqs.jl (Campbell, CampbellLayers, AbstractRetentionLayers)
 
 @bounds @with_kw_noshow mutable struct ParamBEPS2{FT<:AbstractFloat}
     N::Int = 5
@@ -9,7 +9,7 @@
     ψ_min::FT = Cdouble(33.0)  # [m], about 0.10~0.33 MPa开始胁迫点
     alpha::FT = Cdouble(0.4)   # [-], 土壤水限制因子参数，He 2017 JGR-B, Eq. 4
 
-    hydraulic::RetentionLayers{FT,N} = CampbellLayers{FT,N}()
+    hydraulic::AbstractRetentionLayers{FT} = CampbellLayers{FT,N}()
     thermal::ParamSoilThermalLayers{FT} = ParamSoilThermalLayers{FT,N}()
 
     veg::ParamVeg{FT} = ParamVeg{FT}()
