@@ -21,7 +21,7 @@ using ModelParams, Parameters, Test
 
     @testset "HydraulicProfile: 默认 + 推断 P" begin
         h = HydraulicProfile{FT}()
-        @test h.N == 5
+        @test length(h.profile) == 5
         @test h.profile isa CampbellLayers{FT,5}
         @test h.layers isa Vector{Campbell{FT}}
         @test length(h.layers) == 5
@@ -42,7 +42,7 @@ using ModelParams, Parameters, Test
 
     @testset "ThermalProfile" begin
         t = ThermalProfile{FT}()
-        @test t.N == 5
+        @test length(t.profile) == 5
         @test t.profile isa ThermalMainLayers{FT,5}
         @test t.layers isa Vector{ThermalMain{FT}}
         @test length(t.layers) == 5

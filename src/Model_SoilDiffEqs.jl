@@ -10,10 +10,10 @@ export ThermalMain, ThermalMainLayers, ThermalBase, ThermalBaseLayers, ThermalPr
 export SoilModel
 
 abstract type AbstractRetention{T<:Real} end
-abstract type AbstractRetentionLayers{FT,S} <: AbstractLayers{FT,S} end        # 持水模型层基类
+abstract type AbstractRetentionLayers{FT,N,S} <: AbstractLayers{FT,N,S} end        # 持水模型层基类
 
 abstract type AbstractThermal{T<:Real} end
-abstract type AbstractThermalLayers{FT,S} <: AbstractLayers{FT,S} end          # 热传导模型层基类
+abstract type AbstractThermalLayers{FT,N,S} <: AbstractLayers{FT,N,S} end          # 热传导模型层基类
 
 @bounds @units @with_kw mutable struct VanGenuchten{T<:Real} <: AbstractRetention{T}
     θ_sat::T = 0.287 | (0.25, 0.50) | "m3 m-3"   # [m3 m-3]
@@ -60,25 +60,24 @@ end
 _sync_ksat!(kv, layers, dz_cm) = nothing
 
 
-@with_kw mutable struct HydraulicProfile{FT<:AbstractFloat,
-    S<:AbstractRetentionLayers{FT},
+@with_kw mutable struct HydraulicProfile{FT<:AbstractFloat, N,
     P<:AbstractRetention{FT},
+    S<:AbstractRetentionLayers{FT,N,P},
     K<:Union{AbstractKv,AbstractKvLayers}}
-    N::Int = 5
-    dz_cm::Vector{FT} = FT[]   # [cm]; integral Ksat for exponential profiles
-
-    profile::S = CampbellLayers{FT,N}()       # SoA: 持水模型层参数
-    layers::Vector{P} = Vector(profile)       # AoS: 分层实例
-    kv::K = KvLayers{FT,N}()                  # Ksat 深度剖面
+    dz_cm::Vector{FT}
+    profile::S
+    layers::Vector{P}
+    kv::K
 end
 
-# 外构造器：S/K 作为 method type param，从入参 typeof 特化（kwarg 注解也吃这个）
+# 外构造器：N 从 profile 类型推断；S/K 从入参 typeof 特化
 function HydraulicProfile{FT}(; N::Int=5, dz_cm::Vector{FT}=FT[],
     profile::S=CampbellLayers{FT,N}(), kv::K=KvLayers{FT,N}()) where {
     FT<:AbstractFloat,S<:AbstractRetentionLayers{FT},K<:Union{AbstractKv,AbstractKvLayers}}
 
+    Np = length(profile)   # 从 profile 类型参数取 N，忽略 N 入参
     layers = Vector(profile)
-    HydraulicProfile{FT,S,eltype(layers),K}(; N, dz_cm, profile, layers, kv)
+    HydraulicProfile{FT,Np,eltype(layers),S,K}(dz_cm, profile, layers, kv)
 end
 
 
@@ -99,22 +98,22 @@ end
 
 
 # ThermalProfile可以暂时不使用
-@with_kw mutable struct ThermalProfile{FT<:AbstractFloat,
-    S<:AbstractThermalLayers{FT},
-    P<:AbstractThermal{FT}}
-    N::Int = 5
-    profile::S = ThermalMainLayers{FT,N}()
-    layers::Vector{P} = Vector(profile)
+@with_kw mutable struct ThermalProfile{FT<:AbstractFloat, N,
+    P<:AbstractThermal{FT},
+    S<:AbstractThermalLayers{FT,N,P}}
+    profile::S
+    layers::Vector{P}
 end
 
-# 外构造器：S 作为 method type param，从入参 typeof 特化
+# 外构造器：N 从 profile 类型推断；S 从入参 typeof 特化
 function ThermalProfile{FT}(;
     N::Int=5,
     profile::S=ThermalMainLayers{FT,N}()) where {FT<:AbstractFloat,
     S<:AbstractThermalLayers{FT}}
 
+    Np = length(profile)
     layers = Vector(profile)
-    ThermalProfile{FT,S,eltype(layers)}(; N, profile, layers)
+    ThermalProfile{FT,Np,eltype(layers),S}(profile, layers)
 end
 
 

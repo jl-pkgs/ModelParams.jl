@@ -3,17 +3,17 @@ export @make_layers_struct, AbstractLayers, Layers
 
 using DataFrames
 
-abstract type AbstractLayers{FT,S} end
+abstract type AbstractLayers{FT,N,S} end
 # abstract type AbstractModel{FT} end
-function Base.getindex(x::AbstractLayers{FT,S}, i::Int) where {FT,S}
+function Base.getindex(x::AbstractLayers{FT,N,P}, i::Int) where {FT,N,P}
     kw = (; (name => getfield(x, name)[i] for name in fieldnames(typeof(x)))...)
-    return S{FT}(; kw...)
+    return P(; kw...)
 end
 
-Base.length(x::AbstractLayers) = length(getfield(x, first(fieldnames(typeof(x)))))
+Base.length(x::AbstractLayers{FT,N,P}) where {FT,N,P} = N
 
-function Base.Vector(x::AbstractLayers{FT,S}) where {FT,S}
-    return S{FT}[x[i] for i in 1:length(x)]
+function Base.Vector(x::AbstractLayers{FT,N,P}) where {FT,N,P}
+    return P[x[i] for i in 1:length(x)]
 end
 
 
@@ -40,7 +40,7 @@ macro make_layers_struct(sname, sname_new=nothing, base_type=:AbstractLayers)
     end
 
     quote
-        @with_kw mutable struct $sname_new{FT,N} <: $btype{FT,$sname}
+        @with_kw mutable struct $sname_new{FT,N} <: $btype{FT,N,$sname{FT}}
             $(field_expressions...)
         end
     end |> esc
@@ -61,13 +61,12 @@ end
 has_definedbounds(x) = false
 has_definedbounds(x::AbstractLayers) = true
 
-function get_params(x::T; path=[], with_unit=true) where {FT,S,T<:AbstractLayers{FT,S}}
-    N = length(getfield(x, first(fieldnames(T))))
+function get_params(x::T; path=[], with_unit=true) where {FT,N,P,T<:AbstractLayers{FT,N,P}}
     res = map(fieldnames(T)) do field
         value = getfield(x, field)
         _path = [path..., field]
-        bound = bounds(S, field)
-        unit = with_unit ? units(S, field) : ""
+        bound = bounds(P, field)
+        unit = with_unit ? units(P, field) : ""
 
         map(i -> (; path=[_path..., i], name=field,
                 value=value[i], type=eltype(value), bound, unit), 1:N)

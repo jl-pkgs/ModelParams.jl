@@ -3,7 +3,7 @@ export Kv, KvLayers, KvExp, KvExpLayers, KvExpConst, KvExpPiecewise
 
 abstract type AbstractKvProfile{T<:Real} end
 abstract type AbstractKv{FT<:Real} <: AbstractKvProfile{FT} end
-abstract type AbstractKvLayers{FT,S} <: AbstractLayers{FT,S} end
+abstract type AbstractKvLayers{FT,N,S} <: AbstractLayers{FT,N,S} end
 
 
 """Per-layer Ksat (scalar stub). Use KvLayers for multi-layer instances."""

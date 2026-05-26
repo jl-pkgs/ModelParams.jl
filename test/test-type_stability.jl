@@ -21,14 +21,14 @@ using ModelParams, Test, Parameters
         retention = Layers(Campbell(; b=2.0), N)
         kv = KvLayers(retention)
         @test (@inferred HydraulicProfile{FT}(; profile=retention, kv)) isa
-              HydraulicProfile{FT,typeof(retention),Campbell{FT},typeof(kv)}
+              HydraulicProfile{FT,N,Campbell{FT},typeof(retention),typeof(kv)}
     end
 
     @testset "ThermalProfile" begin
         @test (@inferred ThermalProfile{FT}()) isa ThermalProfile{FT}
         layers = ThermalMainLayers{FT,N}()
         @test (@inferred ThermalProfile{FT}(; profile=layers)) isa
-              ThermalProfile{FT,typeof(layers),ThermalMain{FT}}
+              ThermalProfile{FT,N,ThermalMain{FT},typeof(layers)}
     end
 
     @testset "SoilModel" begin
