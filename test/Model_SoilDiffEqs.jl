@@ -8,6 +8,11 @@ retention = Layers(p, N)
 
 kv = KvLayers(retention)
 hydraulic = HydraulicProfile{FT}(; profile=retention, kv)
-
 model = SoilModel{FT}(; N, hydraulic)
 parameters(model)
+
+
+# @code_warntype kv = KvLayers(retention)
+# @code_warntype hydraulic = HydraulicProfile{FT}(; profile=retention, kv)
+# @code_warntype model = SoilModel{FT}(; N, hydraulic)
+# @code_warntype parameters(model)

@@ -13,7 +13,7 @@ end
 Base.length(x::AbstractLayers) = length(getfield(x, first(fieldnames(typeof(x)))))
 
 function Base.Vector(x::AbstractLayers{FT,S}) where {FT,S}
-    map(i -> x[i], 1:length(x))
+    return S{FT}[x[i] for i in 1:length(x)]
 end
 
 
@@ -164,7 +164,7 @@ function update!(model::S, path::Vector, value::FT; type::Type) where {S,FT}
     end
 end
 
-function parameters(model; paths=nothing, with_unit=true)
+function parameters(model; paths=nothing, with_unit=true)::DataFrame
     params = get_params(model; with_unit) |> DataFrame
     if !isnothing(paths)
         inds = indexin(paths, params.path)

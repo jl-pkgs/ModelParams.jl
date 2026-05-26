@@ -51,8 +51,10 @@ function default_hydraulic(::Type{FT}, method_retention::String="van_Genuchten")
     return p
 end
 
-function KvLayers(retention::AbstractRetentionLayers{FT}) where {FT<:AbstractFloat}
-    KvLayers{FT,length(retention)}(; kv=deepcopy(retention.Ksat))
+@generated function KvLayers(retention::T) where {T<:AbstractRetentionLayers}
+    FT = T.parameters[1]   # e.g. Float64
+    N = T.parameters[2]   # e.g. 5  (layer count, NOT the base struct type)
+    :(KvLayers{$FT,$N}(; kv=deepcopy(retention.Ksat)))
 end
 
 _sync_ksat!(kv, layers, dz_cm) = nothing
@@ -63,21 +65,20 @@ _sync_ksat!(kv, layers, dz_cm) = nothing
     P<:AbstractRetention{FT},
     K<:Union{AbstractKv,AbstractKvLayers}}
     N::Int = 5
-    dz_cm::Vector{FT} = FT[]   # layer thicknesses [cm]; set to enable integral Ksat for exponential profiles
+    dz_cm::Vector{FT} = FT[]   # [cm]; integral Ksat for exponential profiles
 
     profile::S = CampbellLayers{FT,N}()       # SoA: 持水模型层参数
     layers::Vector{P} = Vector(profile)       # AoS: 分层实例
     kv::K = KvLayers{FT,N}()                  # Ksat 深度剖面
 end
 
-# 外构造器：从 profile/kv 自动推断 S/P/K，免去手写全部类型参数
+# 外构造器：S/K 作为 method type param，从入参 typeof 特化（kwarg 注解也吃这个）
 function HydraulicProfile{FT}(; N::Int=5, dz_cm::Vector{FT}=FT[],
-    profile::AbstractRetentionLayers{FT}=CampbellLayers{FT,N}(),
-    kv::Union{AbstractKv,AbstractKvLayers}=KvLayers{FT,N}()) where {FT<:AbstractFloat}
+    profile::S=CampbellLayers{FT,N}(), kv::K=KvLayers{FT,N}()) where {
+    FT<:AbstractFloat,S<:AbstractRetentionLayers{FT},K<:Union{AbstractKv,AbstractKvLayers}}
 
     layers = Vector(profile)
-    HydraulicProfile{FT,typeof(profile),eltype(layers),typeof(kv)}(;
-        N, dz_cm, profile, layers, kv)
+    HydraulicProfile{FT,S,eltype(layers),K}(; N, dz_cm, profile, layers, kv)
 end
 
 
@@ -106,26 +107,29 @@ end
     layers::Vector{P} = Vector(profile)
 end
 
-# 外构造器：从 profile 自动推断 S/P
-function ThermalProfile{FT}(; N::Int=5,
-    profile::AbstractThermalLayers{FT}=ThermalMainLayers{FT,N}()) where {FT<:AbstractFloat}
+# 外构造器：S 作为 method type param，从入参 typeof 特化
+function ThermalProfile{FT}(;
+    N::Int=5,
+    profile::S=ThermalMainLayers{FT,N}()) where {FT<:AbstractFloat,
+    S<:AbstractThermalLayers{FT}}
 
     layers = Vector(profile)
-    ThermalProfile{FT,typeof(profile),eltype(layers)}(; N, profile, layers)
+    ThermalProfile{FT,S,eltype(layers)}(; N, profile, layers)
 end
 
 
 ##
-@with_kw mutable struct SoilModel{FT<:AbstractFloat, H<:HydraulicProfile{FT}, T<:ThermalProfile{FT}}
+@with_kw mutable struct SoilModel{FT<:AbstractFloat,H<:HydraulicProfile{FT},T<:ThermalProfile{FT}}
     N::Int = 5                      # number of soil layers
     hydraulic::H = HydraulicProfile{FT}(; N)   # 水力剖面
     thermal::T = ThermalProfile{FT}(; N)       # 热力剖面
 end
 
-# 外构造器：FT 指定时使用默认 hydraulic/thermal
-function SoilModel{FT}(; N::Int=5,
-    hydraulic::HydraulicProfile{FT}=HydraulicProfile{FT}(; N),
-    thermal::ThermalProfile{FT}=ThermalProfile{FT}(; N)) where {FT<:AbstractFloat}
+# 外构造器：不标注 hydraulic/thermal 类型，避免 kwarg 注解 widen 和 T 无法从默认值绑定的问题
+function SoilModel{FT}(;
+    N::Int=5,
+    hydraulic=HydraulicProfile{FT}(; N),
+    thermal=ThermalProfile{FT}(; N)) where {FT<:AbstractFloat}
 
     SoilModel{FT,typeof(hydraulic),typeof(thermal)}(N, hydraulic, thermal)
 end

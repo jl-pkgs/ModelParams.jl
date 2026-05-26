@@ -1,24 +1,13 @@
 # 水力参数
-@bounds @with_kw mutable struct ParamSoilHydraulic{FT<:AbstractFloat}
-    θ_vfc::FT = FT(0.30) | (0.10, 0.45)   # volumetric field capacity [-]
-    θ_vwp::FT = FT(0.10) | (0.02, 0.30)   # volumetric wilting point [-]
-    θ_sat::FT = FT(0.45) | (0.25, 0.70)   # volumetric saturation [-]
-
-    K_sat::FT = FT(5.0) | (0.01, 50.0)   # saturated hydraulic conductivity [cm h-1]
-
-    ψ_sat::FT = FT(-0.5) | (-2.0, -0.01)  # matric potential at saturation [m]
-    b::FT = FT(5.0) | (1.5, 15.0)    # Campbell parameter [-]
-end
-@make_layers_struct ParamSoilHydraulic
-
-
 @with_kw mutable struct ParamSoil{FT<:AbstractFloat}
-    hydraulic::ParamSoilHydraulic{FT} = ParamSoilHydraulic{FT}()
+    hydraulic::CampbellLayers{FT} = CampbellLayers{FT}()
     thermal::ThermalBaseLayers{FT} = ThermalBaseLayers{FT}()
 end
 
 
-@bounds @with_kw_noshow mutable struct ParamBEPS{FT<:AbstractFloat}
+@bounds @with_kw_noshow mutable struct ParamBEPS{FT<:AbstractFloat,
+    H<:CampbellLayers{FT}, T<:ThermalBaseLayers{FT}}
+
     N::Int = 5
     dz::Vector{FT} = FT[0.05, 0.10, 0.20, 0.40, 1.25]  # 土壤层厚度 [m], BEPS V2023
     r_drainage::FT = Cdouble(0.50) | (0.2, 0.7)  # ? 地表排水速率（地表汇流），可考虑采用曼宁公式
@@ -26,10 +15,18 @@ end
     ψ_min::FT = Cdouble(33.0)  # [m], about 0.10~0.33 MPa开始胁迫点
     alpha::FT = Cdouble(0.4)   # [-], 土壤水限制因子参数，He 2017 JGR-B, Eq. 4
 
-    hydraulic::ParamSoilHydraulicLayers{FT} = ParamSoilHydraulicLayers{FT,N}()
-    thermal::ThermalBaseLayers{FT} = ThermalBaseLayers{FT,N}()
+    hydraulic::H = CampbellLayers{FT,N}()
+    thermal::T = ThermalBaseLayers{FT,N}()
 
     veg::ParamVeg{FT} = ParamVeg{FT}()
+end
+
+function ParamBEPS{FT}(; N::Int=5,
+    hydraulic::CampbellLayers{FT}=CampbellLayers{FT,N}(),
+    thermal::ThermalBaseLayers{FT}=ThermalBaseLayers{FT,N}(),
+    kwargs...) where {FT<:AbstractFloat}
+
+    ParamBEPS{FT,typeof(hydraulic),typeof(thermal)}(; N, hydraulic, thermal, kwargs...)
 end
 
 ##
@@ -51,3 +48,6 @@ end
     par = parameters(model; paths)
     @test par.value == theta
 end
+
+# @code_warntype ParamBEPS{Float64}(;)
+# ParamBEPS{Float64}()
