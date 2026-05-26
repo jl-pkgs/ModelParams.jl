@@ -3,13 +3,7 @@ using ModelParams, Test, Parameters
 
 include("test-SoilDiffEqs.jl")
 include("Model_SoilDiffEqs.jl")
-
-FT = Float64
-N = 5
-p = VanGenuchten{FT}(; θ_sat=0.4, θ_res=0.1, Ksat=2.0, α=0.01, n=2.0)
-model = SoilModel(p, 1)
-model = SoilModel(p, N)
-parameters(model)
+##
 
 ##
 include("Model_PML.jl")

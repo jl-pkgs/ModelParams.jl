@@ -4,8 +4,8 @@ using ModelParams, Parameters, Test
     FT = Float64
 
     @testset "Retention 类型层次" begin
-        @test CampbellLayers{FT,5} <: AbstractRetentionLayers
-        @test VanGenuchtenLayers{FT,5} <: AbstractRetentionLayers
+        @test CampbellLayers{FT,5} <: AbstractRetentionProfile
+        @test VanGenuchtenLayers{FT,5} <: AbstractRetentionProfile
         @test Campbell{FT} <: AbstractRetention
         @test VanGenuchten{FT} <: AbstractRetention
     end
@@ -43,8 +43,8 @@ using ModelParams, Parameters, Test
     @testset "ThermalProfile" begin
         t = ThermalProfile{FT}()
         @test t.N == 5
-        @test t.profile isa ParamThermalLayers{FT,5}
-        @test t.layers isa Vector{ParamThermal{FT}}
+        @test t.profile isa ThermalMainLayers{FT,5}
+        @test t.layers isa Vector{ThermalMain{FT}}
         @test length(t.layers) == 5
         @test t.layers[1].κ == t.profile.κ[1]
     end
