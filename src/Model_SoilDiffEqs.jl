@@ -10,10 +10,7 @@ export ThermalMain, ThermalMainLayers, ThermalBase, ThermalBaseLayers, ThermalPr
 export SoilModel
 
 abstract type AbstractRetention{T<:Real} end
-abstract type AbstractRetentionLayers{FT,N,S} <: AbstractLayers{FT,N,S} end        # 持水模型层基类
-
 abstract type AbstractThermal{T<:Real} end
-abstract type AbstractThermalLayers{FT,N,S} <: AbstractLayers{FT,N,S} end          # 热传导模型层基类
 
 @bounds @units @with_kw mutable struct VanGenuchten{T<:Real} <: AbstractRetention{T}
     θ_sat::T = 0.287 | (0.25, 0.50) | "m3 m-3"   # [m3 m-3]
@@ -22,7 +19,7 @@ abstract type AbstractThermalLayers{FT,N,S} <: AbstractLayers{FT,N,S} end       
     α::T = 0.027 | (0.002, 0.300) | "cm-1"       # [cm-1]
     n::T = 3.96 | (1.05, 4.00) | "-"             # [-]
     m::T = 1.0 - 1.0 / n
-    ψ_sat::T = 0.0 | nothing | "cm"              # [cm], optional, 
+    ψ_sat::T = 0.0 | nothing | "cm"              # [cm], optional,
     θ_fc::T = 0.2 | nothing | "m3 m-3"           # field capacity, optional
 end
 
@@ -34,10 +31,15 @@ end
     θ_fc::T = 0.2 | nothing | "m3 m-3"           # field capacity, optional
 end
 
-@make_layers_struct VanGenuchten VanGenuchtenLayers AbstractRetentionLayers
-@make_layers_struct Campbell CampbellLayers AbstractRetentionLayers
-_retention_method(::VanGenuchtenLayers) = "van_Genuchten"
+# 类型别名
+const VanGenuchtenLayers{FT,N} = MultiLayer{FT,N,VanGenuchten{FT}}
+const CampbellLayers{FT,N} = MultiLayer{FT,N,Campbell{FT}}
+
+# 抽象 UnionAll 别名（用于 isa/<: 检查和 method dispatch 约束）
+const AbstractRetentionLayers{FT,N} = MultiLayer{FT,N,S} where {S<:AbstractRetention{FT}}
+
 _retention_method(::CampbellLayers) = "Campbell"
+_retention_method(::VanGenuchtenLayers) = "van_Genuchten"
 
 
 function default_hydraulic(::Type{FT}, method_retention::String="van_Genuchten") where {FT<:AbstractFloat}
@@ -51,33 +53,35 @@ function default_hydraulic(::Type{FT}, method_retention::String="van_Genuchten")
     return p
 end
 
-@generated function KvLayers(retention::T) where {T<:AbstractRetentionLayers}
-    FT = T.parameters[1]   # e.g. Float64
-    N = T.parameters[2]   # e.g. 5  (layer count, NOT the base struct type)
-    :(KvLayers{$FT,$N}(; kv=deepcopy(retention.Ksat)))
+# 从 retention SoA 派生 Ksat 剖面
+function KvLayers(retention::MultiLayer{FT,N,S}) where {FT,N,S<:AbstractRetention{FT}}
+    KvLayers{FT,N}(; kv=deepcopy(retention.Ksat))
 end
 
 _sync_ksat!(kv, layers, dz_cm) = nothing
 
 
-@with_kw mutable struct HydraulicProfile{FT<:AbstractFloat, N,
+## Hydraulic Profile
+# T 自动从 profile 的 typeof 推断，吸收掉 MultiLayer 的 NT 类型参数
+mutable struct HydraulicProfile{FT<:AbstractFloat,N,
     P<:AbstractRetention{FT},
-    S<:AbstractRetentionLayers{FT,N,P},
-    K<:Union{AbstractKv,AbstractKvLayers}}
+    T<:MultiLayer{FT,N,P},
+    K}
     dz_cm::Vector{FT}
-    profile::S
+    profile::T
     layers::Vector{P}
     kv::K
 end
 
-# 外构造器：N 从 profile 类型推断；S/K 从入参 typeof 特化
+# 外构造器：N 从 profile 类型推断；T/K 从入参 typeof 特化
 function HydraulicProfile{FT}(; N::Int=5, dz_cm::Vector{FT}=FT[],
-    profile::S=CampbellLayers{FT,N}(), kv::K=KvLayers{FT,N}()) where {
-    FT<:AbstractFloat,S<:AbstractRetentionLayers{FT},K<:Union{AbstractKv,AbstractKvLayers}}
+    profile=CampbellLayers{FT,N}(),
+    kv=KvLayers{FT,N}()) where {FT<:AbstractFloat}
 
     Np = length(profile)   # 从 profile 类型参数取 N，忽略 N 入参
     layers = Vector(profile)
-    HydraulicProfile{FT,Np,eltype(layers),S,K}(dz_cm, profile, layers, kv)
+    P = eltype(layers)
+    HydraulicProfile{FT,Np,P,typeof(profile),typeof(kv)}(dz_cm, profile, layers, kv)
 end
 
 
@@ -86,34 +90,36 @@ end
     κ::FT = FT(0.2) | (0.1, 10.0) | "W m-1 K-1"
     cv::FT = FT(2.0e6) | (1.0e6, 5.0e6) | "J m-3 K-1"
 end
-@make_layers_struct ThermalMain ThermalMainLayers AbstractThermalLayers
-
 
 @bounds @with_kw mutable struct ThermalBase{FT<:AbstractFloat} <: AbstractThermal{FT}
     κ_dry::FT = FT(0.2) | (0.05, 0.5)      # dry soil thermal conductivity [W m-1 K-1]
     ρ_soil::FT = FT(1300.0) | (800.0, 1800.0) # soil bulk density [kg m-3]
     V_SOM::FT = FT(0.02) | (0.0, 0.3)      # organic matter volume fraction [-]
 end
-@make_layers_struct ThermalBase ThermalBaseLayers AbstractThermalLayers
+
+const ThermalMainLayers{FT,N} = MultiLayer{FT,N,ThermalMain{FT}}
+const ThermalBaseLayers{FT,N} = MultiLayer{FT,N,ThermalBase{FT}}
+
+const AbstractThermalLayers{FT,N} = MultiLayer{FT,N,S} where {S<:AbstractThermal{FT}}
 
 
 # ThermalProfile可以暂时不使用
-@with_kw mutable struct ThermalProfile{FT<:AbstractFloat, N,
+mutable struct ThermalProfile{FT<:AbstractFloat,N,
     P<:AbstractThermal{FT},
-    S<:AbstractThermalLayers{FT,N,P}}
-    profile::S
+    T<:MultiLayer{FT,N,P}}
+    profile::T
     layers::Vector{P}
 end
 
-# 外构造器：N 从 profile 类型推断；S 从入参 typeof 特化
+# 外构造器：N 从 profile 类型推断；T 从入参 typeof 特化
 function ThermalProfile{FT}(;
     N::Int=5,
-    profile::S=ThermalMainLayers{FT,N}()) where {FT<:AbstractFloat,
-    S<:AbstractThermalLayers{FT}}
+    profile=ThermalMainLayers{FT,N}()) where {FT<:AbstractFloat}
 
     Np = length(profile)
     layers = Vector(profile)
-    ThermalProfile{FT,Np,eltype(layers),S}(profile, layers)
+    P = eltype(layers)
+    ThermalProfile{FT,Np,P,typeof(profile)}(profile, layers)
 end
 
 

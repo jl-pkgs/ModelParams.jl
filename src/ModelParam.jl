@@ -1,73 +1,102 @@
 export parameters, update!
-export @make_layers_struct, AbstractLayers, Layers
+export AbstractLayers, MultiLayer, Layers
 
 using DataFrames
 
-abstract type AbstractLayers{FT,N,S} end
+# 抽象基类：FT 元素类型，N 层数（去掉旧设计中的 S 参数）
+abstract type AbstractLayers{FT,N} end
 # abstract type AbstractModel{FT} end
-function Base.getindex(x::AbstractLayers{FT,N,P}, i::Int) where {FT,N,P}
-    kw = (; (name => getfield(x, name)[i] for name in fieldnames(typeof(x)))...)
-    return P(; kw...)
+
+# 统一的 SoA 多层容器
+# - S:  标量结构体类型（如 Campbell{FT}）
+# - NT: 底层 NamedTuple 类型（由 S 的字段集和 FT 决定，构造时自动推断）
+struct MultiLayer{FT,N,S,NT<:NamedTuple} <: AbstractLayers{FT,N}
+    data::NT
 end
 
-Base.length(x::AbstractLayers{FT,N,P}) where {FT,N,P} = N
+# 把 kwargs 值规范化为 Vector{FT}
+_ml_field(::Type{FT}, N::Int, v::AbstractVector) where {FT} = convert(Vector{FT}, v)
+_ml_field(::Type{FT}, N::Int, v::Number) where {FT} = fill(FT(v), N)
 
-function Base.Vector(x::AbstractLayers{FT,N,P}) where {FT,N,P}
-    return P[x[i] for i in 1:length(x)]
-end
+# @generated 构造器：从 S 的字段集自动展开 SoA NamedTuple
+@generated function MultiLayer{FT,N,S}(; kwargs...) where {FT,N,S}
+    fnames = fieldnames(S)
+    ftypes = fieldtypes(S)
+    keep = Symbol[fnames[i] for (i, t) in enumerate(ftypes) if t <: AbstractFloat]
+    keep_tuple = Tuple(keep)
 
+    s_default = S()
+    defaults = Float64[Float64(getfield(s_default, n)) for n in keep]
 
-macro make_layers_struct(sname, sname_new=nothing, base_type=:AbstractLayers)
-    isnothing(sname_new) && (sname_new = Symbol(sname, :Layers))
-
-    stype = getfield(__module__, sname)
-    btype = getfield(__module__, base_type)
-    # btype = base_type isa Symbol ? getfield(__module__, base_type) : base_type
-
-    names_list = collect(fieldnames(stype))
-    types_list = fieldtypes(stype)
-
-    x = stype{Float64}() # for default values
-    values = map(fname -> getfield(x, fname), names_list)
-
-    field_expressions = []
-    # push!(field_expressions, :(ntime::Int = 100))
-    for (i, fname) in enumerate(names_list)
-        ftype = types_list[i]
-        value = values[i]
-        ftype <: AbstractVector && continue
-        push!(field_expressions, :($fname::Vector{FT} = fill($value, N)))
+    val_exprs = map(zip(keep, defaults)) do (n, d)
+        qn = QuoteNode(n)
+        :(haskey(kwargs, $qn) ? _ml_field($FT, $N, kwargs[$qn]) : fill($FT($d), $N))
     end
 
     quote
-        @with_kw mutable struct $sname_new{FT,N} <: $btype{FT,N,$sname{FT}}
-            $(field_expressions...)
-        end
-    end |> esc
+        data = NamedTuple{$keep_tuple}(tuple($(val_exprs...)))
+        MultiLayer{$FT,$N,$S,typeof(data)}(data)
+    end
 end
 
+# 字段访问：转发到底层 NamedTuple
+@inline function Base.getproperty(x::MultiLayer, name::Symbol)
+    name === :data && return getfield(x, :data)
+    return getproperty(getfield(x, :data), name)
+end
+
+Base.propertynames(::MultiLayer{FT,N,S}) where {FT,N,S} = (:data, fieldnames(S)...)
+
+# AoS 单层：根据 NT 的字段名重建标量 S
+@generated function Base.getindex(x::MultiLayer{FT,N,S,NT}, i::Int) where {FT,N,S,NT}
+    fnames = NT.parameters[1]
+    kw_exprs = [:($n = x.data.$n[i]) for n in fnames]
+    :(S(; $(kw_exprs...)))
+end
+
+Base.length(::MultiLayer{FT,N}) where {FT,N} = N
+
+function Base.Vector(x::MultiLayer{FT,N,S}) where {FT,N,S}
+    return S[x[i] for i in 1:N]
+end
+
+# 从单层 AoS 实例构造 SoA MultiLayer
 @generated function Layers(p::P, N::Int) where {P}
     FT = Float64
     for ft in fieldtypes(P)
         ft <: AbstractFloat && (FT = ft; break)
     end
-    LayersRef = GlobalRef(parentmodule(P), Symbol(nameof(P), :Layers))
-    kwargs = [:($(f) = fill(p.$f, N)) for f in fieldnames(P)]
+    fnames = fieldnames(P)
+    kwargs = [:($f = fill(getfield(p, $(QuoteNode(f))), N)) for f in fnames]
     quote
-        $LayersRef{$FT,N}($(kwargs...))
+        MultiLayer{$FT,N,$P}(; $(kwargs...))
     end
 end
+
 
 has_definedbounds(x) = false
 has_definedbounds(x::AbstractLayers) = true
 
-function get_params(x::T; path=[], with_unit=true) where {FT,N,P,T<:AbstractLayers{FT,N,P}}
-    res = map(fieldnames(T)) do field
-        value = getfield(x, field)
-        _path = [path..., field]
-        bound = bounds(P, field)
-        unit = with_unit ? units(P, field) : ""
+# 专属 update!：MultiLayer 的字段（如 :θ_sat）不是真实字段，需走 getproperty
+function update!(x::MultiLayer, path::Vector, value::FT; type::Type) where {FT}
+    if length(path) >= 2
+        field = path[1]
+        idx = path[2]
+        vec = getproperty(x, field)
+        vec[idx] = type(value)
+        return
+    end
+    error("update! on MultiLayer requires path of length >= 2, got $path")
+end
 
+# 多层参数收集：从 S 取字段集和 bounds/units 元数据
+function get_params(x::MultiLayer{FT,N,S}; path=[], with_unit=true) where {FT,N,S}
+    fnames = filter(f -> fieldtype(S, f) <: AbstractFloat, fieldnames(S))
+    res = map(fnames) do field
+        value = getproperty(x, field)
+        _path = [path..., field]
+        bound = bounds(S, field)
+        unit = with_unit ? units(S, field) : ""
         map(i -> (; path=[_path..., i], name=field,
                 value=value[i], type=eltype(value), bound, unit), 1:N)
     end
@@ -145,7 +174,7 @@ function update!(model::S, path::Vector, value::FT; type::Type) where {S,FT}
         # @show model, path[1], value
         setfield!(model, path[1], type(value))
     elseif length(path) > 1
-        submodel = getfield(model, path[1]) # 
+        submodel = getfield(model, path[1]) #
 
         if isa(submodel, Vector) # 如果是多模型
             models = submodel
