@@ -1,18 +1,55 @@
-using ModelParams, Parameters
-# _sync_ksat!(hydraulic.kv, hydraulic.layers, dz_cm)
+using ModelParams, Parameters, Test
 
-N = 4
-FT = Float64
-p = Campbell(; b=2.0)
-retention = Layers(p, N)
+_fieldtypes_are_concrete(x) = all(isconcretetype, fieldtypes(typeof(x)))
+_struct_is_stable(x) = isconcretetype(typeof(x)) && _fieldtypes_are_concrete(x)
 
-kv = KvLayers(retention)
-hydraulic = HydraulicProfile{FT}(; profile=retention, kv)
-model = SoilModel{FT}(; N, hydraulic)
-parameters(model)
+@testset "Model_SoilDiffEqs struct stability" begin
+    FT = Float64
+    N = 4
 
+    p = Campbell(; b=2.0)
+    retention = Layers(p, N)
+    kv = @inferred KvLayers(retention)
+    hydraulic = HydraulicProfile{FT}(; profile=retention, kv)
+    thermal = ThermalProfile{FT}(; N)
+    model = SoilModel{FT}(; N, hydraulic, thermal)
 
-# @code_warntype kv = KvLayers(retention)
-# @code_warntype hydraulic = HydraulicProfile{FT}(; profile=retention, kv)
-# @code_warntype model = SoilModel{FT}(; N, hydraulic)
-# @code_warntype parameters(model)
+    @testset "concrete instance layouts" begin
+        @test _struct_is_stable(p)
+        @test _struct_is_stable(retention)
+        @test _struct_is_stable(kv)
+        @test _struct_is_stable(hydraulic)
+        @test _struct_is_stable(thermal)
+        @test _struct_is_stable(model)
+    end
+
+    @testset "expected concrete parameterization" begin
+        @test retention isa CampbellLayers{FT,N}
+        @test kv isa KvLayers{FT,N}
+        @test hydraulic isa HydraulicProfile{FT,N,Campbell{FT},typeof(retention),typeof(kv)}
+        @test thermal.profile isa ThermalMainLayers{FT,N}
+        @test thermal isa ThermalProfile{FT,N,ThermalMain{FT},typeof(thermal.profile)}
+        @test model isa SoilModel{FT,typeof(hydraulic),typeof(thermal)}
+    end
+
+    @testset "nested fields remain concrete" begin
+        @test model.hydraulic === hydraulic
+        @test model.thermal === thermal
+        @test model.hydraulic.profile === retention
+        @test model.hydraulic.kv === kv
+        @test model.hydraulic.layers isa Vector{Campbell{FT}}
+        @test model.thermal.layers isa Vector{ThermalMain{FT}}
+    end
+
+    @testset "constructor inference" begin
+        @test (@inferred KvLayers(retention)) isa KvLayers{FT,N}
+        @test (@inferred HydraulicProfile{FT}()) isa HydraulicProfile{FT}
+        @test (@inferred ThermalProfile{FT}()) isa ThermalProfile{FT}
+        @test (@inferred SoilModel{FT}()) isa SoilModel{FT}
+    end
+
+    params = parameters(model)
+    @test :path in propertynames(params)
+    @test :bound in propertynames(params)
+    @test size(params, 1) > 0
+end
