@@ -14,7 +14,7 @@ end
 
 @with_kw mutable struct ParamSoil{FT<:AbstractFloat}
     hydraulic::ParamSoilHydraulic{FT} = ParamSoilHydraulic{FT}()
-    thermal::ParamSoilThermal{FT} = ParamSoilThermal{FT}()
+    thermal::ThermalBaseLayers{FT} = ThermalBaseLayers{FT}()
 end
 
 
@@ -27,7 +27,7 @@ end
     alpha::FT = Cdouble(0.4)   # [-], 土壤水限制因子参数，He 2017 JGR-B, Eq. 4
 
     hydraulic::ParamSoilHydraulicLayers{FT} = ParamSoilHydraulicLayers{FT,N}()
-    thermal::ParamSoilThermalLayers{FT} = ParamSoilThermalLayers{FT,N}()
+    thermal::ThermalBaseLayers{FT} = ThermalBaseLayers{FT,N}()
 
     veg::ParamVeg{FT} = ParamVeg{FT}()
 end

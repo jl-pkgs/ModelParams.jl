@@ -9,8 +9,8 @@
     ψ_min::FT = Cdouble(33.0)  # [m], about 0.10~0.33 MPa开始胁迫点
     alpha::FT = Cdouble(0.4)   # [-], 土壤水限制因子参数，He 2017 JGR-B, Eq. 4
 
-    hydraulic::AbstractRetentionProfile{FT} = CampbellLayers{FT,N}()
-    thermal::ParamSoilThermalLayers{FT} = ParamSoilThermalLayers{FT,N}()
+    hydraulic::AbstractRetentionLayers{FT} = CampbellLayers{FT,N}()
+    thermal::AbstractThermalLayers{FT} = ThermalBaseLayers{FT,N}()
 
     veg::ParamVeg{FT} = ParamVeg{FT}()
 end

@@ -34,12 +34,3 @@ import ModelParams: bounds, units, @bounds, @units
     N_leaf::FT = 1.74 + 0.71 | (0.5, 5.0)   # leaf Nitrogen content, mean value + 1 SD [g/m2]
     slope_Vc::FT = 33.79 / 57.7 | (0.3, 1.0) # slope for Vcmax-N relationship
 end
-
-
-# 热力参数
-@bounds @with_kw mutable struct ParamSoilThermal{FT<:AbstractFloat}
-    κ_dry::FT = FT(0.2) | (0.05, 0.5)      # dry soil thermal conductivity [W m-1 K-1]
-    ρ_soil::FT = FT(1300.0) | (800.0, 1800.0) # soil bulk density [kg m-3]
-    V_SOM::FT = FT(0.02) | (0.0, 0.3)      # organic matter volume fraction [-]
-end
-@make_layers_struct ParamSoilThermal

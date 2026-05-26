@@ -4,8 +4,8 @@ using ModelParams, Parameters, Test
     FT = Float64
 
     @testset "Retention 类型层次" begin
-        @test CampbellLayers{FT,5} <: AbstractRetentionProfile
-        @test VanGenuchtenLayers{FT,5} <: AbstractRetentionProfile
+        @test CampbellLayers{FT,5} <: AbstractRetentionLayers
+        @test VanGenuchtenLayers{FT,5} <: AbstractRetentionLayers
         @test Campbell{FT} <: AbstractRetention
         @test VanGenuchten{FT} <: AbstractRetention
     end
