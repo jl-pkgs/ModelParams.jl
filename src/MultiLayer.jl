@@ -5,7 +5,6 @@ using DataFrames
 
 # 抽象基类：FT 元素类型，N 层数（去掉旧设计中的 S 参数）
 abstract type AbstractLayers{FT,N} end
-# abstract type AbstractModel{FT} end
 
 # 统一的 SoA 多层容器
 # - S:  标量结构体类型（如 Campbell{FT}）
@@ -18,14 +17,15 @@ end
 _ml_field(::Type{FT}, N::Int, v::AbstractVector) where {FT} = convert(Vector{FT}, v)
 _ml_field(::Type{FT}, N::Int, v::Number) where {FT} = fill(FT(v), N)
 
+# !注意：MultiLayer自动只保留了Float类型的字段
 # @generated 构造器：从 S 的字段集自动展开 SoA NamedTuple
 @generated function MultiLayer{FT,N,S}(; kwargs...) where {FT,N,S}
-    fnames = fieldnames(S)
+    fields = fieldnames(S)
     ftypes = fieldtypes(S)
-    keep = Symbol[fnames[i] for (i, t) in enumerate(ftypes) if t <: AbstractFloat]
+    keep = Symbol[fields[i] for (i, t) in enumerate(ftypes) if t <: AbstractFloat]
     keep_tuple = Tuple(keep)
 
-    s_default = S()
+    s_default = S() # S must have a zero-argument constructor (e.g. via @with_kw)
     defaults = Float64[Float64(getfield(s_default, n)) for n in keep]
 
     val_exprs = map(zip(keep, defaults)) do (n, d)
@@ -45,12 +45,12 @@ end
     return getproperty(getfield(x, :data), name)
 end
 
-Base.propertynames(::MultiLayer{FT,N,S}) where {FT,N,S} = (:data, fieldnames(S)...)
+Base.propertynames(::MultiLayer{FT,N,S}) where {FT,N,S} = _ml_float_fields(S)
 
 # AoS 单层：根据 NT 的字段名重建标量 S
 @generated function Base.getindex(x::MultiLayer{FT,N,S,NT}, i::Int) where {FT,N,S,NT}
-    fnames = NT.parameters[1]
-    kw_exprs = [:($n = x.data.$n[i]) for n in fnames]
+    fields = fieldnames(NT)
+    kw_exprs = [:($n = x.data.$n[i]) for n in fields]
     :(S(; $(kw_exprs...)))
 end
 
@@ -63,13 +63,13 @@ end
 # 从单层 AoS 实例构造 SoA MultiLayer
 @generated function Layers(p::P, N::Int) where {P}
     FT = Float64
-    fnames = fieldnames(P)
+    fields = fieldnames(P)
     ftypes = fieldtypes(P)
     for ft in ftypes
         ft <: AbstractFloat && (FT = ft; break)
     end
-    float_fields = [fnames[i] for (i, t) in enumerate(ftypes) if t <: AbstractFloat]
-    kwargs = [:($f = fill(getfield(p, $(QuoteNode(f))), N)) for f in float_fields]
+    float_fields = [fields[i] for (i, t) in enumerate(ftypes) if t <: AbstractFloat]
+    kwargs = [:($f = getfield(p, $(QuoteNode(f)))) for f in float_fields]
     quote
         MultiLayer{$FT,N,$P}(; $(kwargs...))
     end
@@ -86,9 +86,8 @@ has_definedbounds(x::AbstractLayers) = true
 end
 
 function get_params(x::MultiLayer{FT,N,S}; path=[], with_unit=true) where {FT,N,S}
-    fnames = _ml_float_fields(S)
-    isempty(fnames) && return []
-    res = map(fnames) do field
+    fields = _ml_float_fields(S)
+    res = map(fields) do field
         value = getproperty(x, field)
         _path = [path..., field]
         bound = bounds(S, field)
@@ -100,7 +99,7 @@ function get_params(x::MultiLayer{FT,N,S}; path=[], with_unit=true) where {FT,N,
 end
 
 # 专属 update!：MultiLayer 的字段（如 :θ_sat）不是真实字段，需走 getproperty
-function update!(x::MultiLayer, path::Vector, value::FT; type::Type) where {FT}
+function update!(x::MultiLayer, path::AbstractVector, value::FT; type::Type) where {FT}
     if length(path) >= 2
         field = path[1]
         idx = path[2]

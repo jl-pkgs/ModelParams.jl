@@ -18,12 +18,14 @@ function split_bounds(x::S) where {S}
         (T <: AbstractArray || T <: Tuple) && return :macro
         (has_definedbounds(value) || isstructtype(T)) ? :predef : :macro
     end
-    fields = fieldnames(S)
-    (
-        filter(f -> categorize(f) == :predef, fields),
-        filter(f -> categorize(f) == :macro, fields)
+    predef, macro_fields = Symbol[], Symbol[]
+    for f in fieldnames(S)
+        cat = categorize(f)
+        cat == :predef && push!(predef, f)
+        cat == :macro  && push!(macro_fields, f)
         # :skip 的字段完全略过
-    )
+    end
+    predef, macro_fields
 end
 
 
@@ -32,53 +34,50 @@ function get_params(x::S; path=[], with_unit=true) where {S}
 
     res_predef = map(field -> begin
             value = getfield(x, field)
-            get_params(value; path=[path..., field])
+            get_params(value; path=[path..., field], with_unit)
         end, fs_predef)
 
     res_macro = map(field -> begin
-            # @show bounds(x, field)
             value = getfield(x, field)
             unit = with_unit ? units(S, field) : ""
             (; path=[path..., field], name=field,
                 value, type=eltype(value), bound=bounds(x, field), unit)
         end, fs_macro)
-    res = vcat(res_macro..., res_predef...)
+    res = vcat(res_macro, reduce(vcat, res_predef; init=eltype(res_macro)[]))
     filter(x -> !isnothing(x.bound), res)
 end
 
 
-function update!(model::S, paths::Vector, values::Vector{FT},
+function update!(model::S, paths::AbstractVector, values::Vector{FT},
     ; params::Union{Nothing,DataFrame}=nothing) where {S,FT}
     isnothing(params) && (params = parameters(model))
 
     path_idx = Dict(p => i for (i, p) in enumerate(params.path))
     length(path_idx) == nrow(params) || error("Duplicated parameters found in params!")
-    for (path, value) in zip(paths, values)
+    @inbounds for (path, value) in zip(paths, values)
         idx = get(path_idx, path, nothing)
         isnothing(idx) && error("Parameter path $(path) not found in model!")
         update!(model, params.path[idx], value; type=params.type[idx])
     end
 end
 
-function update!(model::S, path::Vector, value::FT; type::Type) where {S,FT}
+@inbounds function update!(model::S, path::AbstractVector, value::FT; type::Type) where {S,FT}
     if length(path) == 1
-        # @show model, path[1], value
         setfield!(model, path[1], type(value))
     elseif length(path) > 1
-        submodel = getfield(model, path[1]) #
+        submodel = getfield(model, path[1])
 
         if isa(submodel, Vector) # 如果是多模型
-            models = submodel
             i = path[2]
 
-            if typeof(models[i]) == FT
-                models[i] = type(value)
+            if typeof(submodel[i]) == FT
+                submodel[i] = type(value)
                 return
             end
             # 下面是应对Struct Vector
-            update!(models[i], path[3:end], value; type)
+            update!(submodel[i], @view(path[3:end]), value; type)
         else
-            update!(submodel, path[2:end], value; type)
+            update!(submodel, @view(path[2:end]), value; type)
         end
     end
 end
@@ -99,8 +98,8 @@ function get_opt_info(model; paths=nothing)
     x0 = Float64.(df.value)
     lb = Float64[b[1] for b in df.bound]
     ub = Float64[b[2] for b in df.bound]
-    paths = df.path
-    return x0, lb, ub, paths
+    _paths = df.path
+    return x0, lb, ub, _paths
 end
 
 export get_params, parameters, update!
