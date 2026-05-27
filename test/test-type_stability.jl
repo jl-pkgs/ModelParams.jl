@@ -16,29 +16,30 @@ using ModelParams, Test, Parameters
 
     @testset "HydraulicProfile" begin
         # 默认入参
-        @test (@inferred HydraulicProfile{FT}()) isa HydraulicProfile{FT}
+        @test (@inferred HydraulicProfile{FT,N}()) isa HydraulicProfile{FT,N}
         # 显式 profile + kv
         retention = Layers(Campbell(; b=2.0), N)
         kv = KvLayers(retention)
-        @test (@inferred HydraulicProfile{FT}(; profile=retention, kv)) isa
+        @test (@inferred HydraulicProfile{FT,N}(retention, kv)) isa
               HydraulicProfile{FT,N,Campbell{FT},typeof(retention),typeof(kv)}
     end
 
     @testset "ThermalProfile" begin
-        @test (@inferred ThermalProfile{FT}()) isa ThermalProfile{FT}
+        @test (@inferred ThermalProfile{FT,N}()) isa ThermalProfile{FT,N}
         layers = ThermalMainLayers{FT,N}()
-        @test (@inferred ThermalProfile{FT}(; profile=layers)) isa
+        @test (@inferred ThermalProfile{FT,N}(layers)) isa
               ThermalProfile{FT,N,ThermalMain{FT},typeof(layers)}
     end
 
     @testset "SoilModel" begin
         # 无参路径：constprop 全走默认值，可 @inferred
-        @test (@inferred SoilModel{FT}()) isa SoilModel{FT}
-        # 显式 hydraulic：thermal 默认值走 runtime N，constprop 不过 @inferred；只检查运行时类型
-        h = HydraulicProfile{FT}(; N)
-        model = SoilModel{FT}(; N, hydraulic=h)
-        @test model isa SoilModel{FT}
+        @test (@inferred SoilModel{FT,N}()) isa SoilModel{FT,N}
+        # 显式 hydraulic：N 作为类型参数传入，thermal 从 hydraulic 的类型参数 N 派生
+        h = HydraulicProfile{FT,N}()
+        model = @inferred SoilModel{FT,N}(h)
+        @test model isa SoilModel{FT,N}
         @test model.hydraulic === h
+        @test model.thermal isa ThermalProfile{FT,N}
     end
 
     # @testset "ParamBEPS (1.0)" begin

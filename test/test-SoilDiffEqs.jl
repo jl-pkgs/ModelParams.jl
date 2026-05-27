@@ -20,7 +20,7 @@ using ModelParams, Parameters, Test
     end
 
     @testset "HydraulicProfile: 默认 + 推断 P" begin
-        h = HydraulicProfile{FT}()
+        h = HydraulicProfile{FT,5}()
         @test length(h.profile) == 5
         @test h.profile isa CampbellLayers{FT,5}
         @test h.layers isa Vector{Campbell{FT}}
@@ -29,19 +29,19 @@ using ModelParams, Parameters, Test
     end
 
     @testset "HydraulicProfile: 替换 retention 模型" begin
-        h = HydraulicProfile{FT}(; N=3, profile=VanGenuchtenLayers{FT,3}())
+        h = HydraulicProfile{FT,3}(VanGenuchtenLayers{FT,3}())
         @test h.profile isa VanGenuchtenLayers{FT,3}
         @test h.layers isa Vector{VanGenuchten{FT}}
         @test length(h.layers) == 3
     end
 
     @testset "HydraulicProfile: 替换 kv 剖面" begin
-        h = HydraulicProfile{FT}(; N=4, kv=KvExpLayers{FT,4}())
+        h = HydraulicProfile{FT,4}(CampbellLayers{FT,4}(), KvExpLayers{FT,4}())
         @test h.kv isa KvExpLayers{FT,4}
     end
 
     @testset "ThermalProfile" begin
-        t = ThermalProfile{FT}()
+        t = ThermalProfile{FT,5}()
         @test length(t.profile) == 5
         @test t.profile isa ThermalMainLayers{FT,5}
         @test t.layers isa Vector{ThermalMain{FT}}
@@ -50,7 +50,7 @@ using ModelParams, Parameters, Test
     end
 
     @testset "parameters() 递归收集" begin
-        h = HydraulicProfile{FT}()
+        h = HydraulicProfile{FT,5}()
         df = parameters(h)
         @test :path in propertynames(df)
         @test :bound in propertynames(df)
@@ -61,7 +61,7 @@ using ModelParams, Parameters, Test
     end
 
     @testset "update! 修改 profile 中的层参数" begin
-        h = HydraulicProfile{FT}(; N=3)
+        h = HydraulicProfile{FT,3}()
         params = parameters(h)
         path = [:profile, :θ_sat, 2]
         update!(h, [path], [0.42]; params)

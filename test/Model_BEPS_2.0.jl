@@ -12,15 +12,15 @@ include("Model_BEPS_base.jl")
     ψ_min::FT = Cdouble(33.0)  # [m], about 0.10~0.33 MPa开始胁迫点
     alpha::FT = Cdouble(0.4)   # [-], 土壤水限制因子参数，He 2017 JGR-B, Eq. 4
 
-    hydraulic::H = HydraulicProfile{FT}(; N)
+    hydraulic::H = HydraulicProfile{FT,N}()
     thermal::T = ThermalBaseLayers{FT,N}()
 
     veg::ParamVeg{FT} = ParamVeg{FT}()
 end
 
 function ParamBEPS2{FT}(; N::Int=5,
-    hydraulic::HydraulicProfile{FT}=HydraulicProfile{FT}(; N),
-    thermal::ThermalBaseLayers{FT}=ThermalBaseLayers{FT,N}(),
+    hydraulic=HydraulicProfile{FT,N}(),
+    thermal=ThermalBaseLayers{FT,N}(),
     kwargs...) where {FT<:AbstractFloat}
     ParamBEPS2{FT,typeof(hydraulic),typeof(thermal)}(; N, hydraulic, thermal, kwargs...)
 end

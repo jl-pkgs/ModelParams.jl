@@ -42,16 +42,12 @@ _retention_method(::CampbellLayers) = "Campbell"
 _retention_method(::VanGenuchtenLayers) = "van_Genuchten"
 
 
-function default_hydraulic(::Type{FT}, method_retention::String="van_Genuchten") where {FT<:AbstractFloat}
-    if method_retention == "van_Genuchten"
-        p = VanGenuchten{FT}(; θ_sat=0.4, θ_res=0.1, Ksat=2.0, α=0.01, n=2.0)
-    elseif method_retention == "Campbell"
-        p = Campbell{FT}(; θ_sat=0.4, ψ_sat=-10.0, Ksat=2.0, b=4.0)
-    else
-        error("Unknown method_retention: $method_retention")
-    end
-    return p
-end
+default_hydraulic(::Type{FT}, ::Val{:van_Genuchten}) where {FT<:AbstractFloat} =
+    VanGenuchten{FT}(; θ_sat=0.4, θ_res=0.1, Ksat=2.0, α=0.01, n=2.0)
+
+default_hydraulic(::Type{FT}, ::Val{:Campbell}) where {FT<:AbstractFloat} =
+    Campbell{FT}(; θ_sat=0.4, ψ_sat=-10.0)
+
 
 # 从 retention SoA 派生 Ksat 剖面
 function KvLayers(retention::MultiLayer{FT,N,S}) where {FT,N,S<:AbstractRetention{FT}}
@@ -64,24 +60,22 @@ _sync_ksat!(kv, layers, dz_cm) = nothing
 ## Hydraulic Profile
 # T 自动从 profile 的 typeof 推断，吸收掉 MultiLayer 的 NT 类型参数
 mutable struct HydraulicProfile{FT<:AbstractFloat,N,
-    P<:AbstractRetention{FT},
-    T<:MultiLayer{FT,N,P},
-    K}
-    dz_cm::Vector{FT}
+    P<:AbstractRetention{FT},T<:MultiLayer{FT,N,P},K}
+
     profile::T
     layers::Vector{P}
     kv::K
+    dz_cm::Vector{FT}
 end
 
-# 外构造器：N 从 profile 类型推断；T/K 从入参 typeof 特化
-function HydraulicProfile{FT}(; N::Int=5, dz_cm::Vector{FT}=FT[],
+# 外构造器：N 作为类型参数；T/K 从入参 typeof 特化
+function HydraulicProfile{FT,N}(
     profile=CampbellLayers{FT,N}(),
-    kv=KvLayers{FT,N}()) where {FT<:AbstractFloat}
+    kv=KvLayers{FT,N}(), dz_cm::Vector{FT}=FT[]) where {FT<:AbstractFloat,N}
 
-    Np = length(profile)   # 从 profile 类型参数取 N，忽略 N 入参
     layers = Vector(profile)
     P = eltype(layers)
-    HydraulicProfile{FT,Np,P,typeof(profile),typeof(kv)}(dz_cm, profile, layers, kv)
+    HydraulicProfile{FT,N,P,typeof(profile),typeof(kv)}(profile, layers, kv, dz_cm)
 end
 
 
@@ -100,8 +94,8 @@ end
 const ThermalMainLayers{FT,N} = MultiLayer{FT,N,ThermalMain{FT}}
 const ThermalBaseLayers{FT,N} = MultiLayer{FT,N,ThermalBase{FT}}
 
+## ThermalProfile
 const AbstractThermalLayers{FT,N} = MultiLayer{FT,N,S} where {S<:AbstractThermal{FT}}
-
 
 # ThermalProfile可以暂时不使用
 mutable struct ThermalProfile{FT<:AbstractFloat,N,
@@ -111,30 +105,25 @@ mutable struct ThermalProfile{FT<:AbstractFloat,N,
     layers::Vector{P}
 end
 
-# 外构造器：N 从 profile 类型推断；T 从入参 typeof 特化
-function ThermalProfile{FT}(;
-    N::Int=5,
-    profile=ThermalMainLayers{FT,N}()) where {FT<:AbstractFloat}
-
-    Np = length(profile)
+# 外构造器：N 作为类型参数；T 从入参 typeof 特化
+function ThermalProfile{FT,N}(
+    profile=ThermalMainLayers{FT,N}()) where {FT<:AbstractFloat,N}
     layers = Vector(profile)
-    P = eltype(layers)
-    ThermalProfile{FT,Np,P,typeof(profile)}(profile, layers)
+    ThermalProfile{FT,N,eltype(layers),typeof(profile)}(profile, layers)
 end
 
 
 ##
-@with_kw mutable struct SoilModel{FT<:AbstractFloat,H<:HydraulicProfile{FT},T<:ThermalProfile{FT}}
-    N::Int = 5                      # number of soil layers
-    hydraulic::H = HydraulicProfile{FT}(; N)   # 水力剖面
-    thermal::T = ThermalProfile{FT}(; N)       # 热力剖面
+mutable struct SoilModel{FT<:AbstractFloat,N,
+    H<:HydraulicProfile{FT,N},T<:ThermalProfile{FT,N}}
+
+    hydraulic::H   # 水力剖面
+    thermal::T     # 热力剖面
 end
 
-# 外构造器：不标注 hydraulic/thermal 类型，避免 kwarg 注解 widen 和 T 无法从默认值绑定的问题
-function SoilModel{FT}(;
-    N::Int=5,
-    hydraulic=HydraulicProfile{FT}(; N),
-    thermal=ThermalProfile{FT}(; N)) where {FT<:AbstractFloat}
-
-    SoilModel{FT,typeof(hydraulic),typeof(thermal)}(N, hydraulic, thermal)
+# 外构造器：N 作为类型参数显式传入，避免 runtime N → 类型不稳定
+function SoilModel{FT,N}(
+    hydraulic=HydraulicProfile{FT,N}(),
+    thermal=ThermalProfile{FT,N}()) where {FT<:AbstractFloat,N}
+    SoilModel{FT,N,typeof(hydraulic),typeof(thermal)}(hydraulic, thermal)
 end
