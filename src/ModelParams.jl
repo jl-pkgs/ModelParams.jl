@@ -28,11 +28,14 @@ get_bound(params::DataFrame) = get_bound(params.bound)
 
 abstract type AbstractModel{FT} end
 
+include("metadata.jl")
+
 include("parallel.jl")
-include("ModelParam.jl")
+include("MultiLayer.jl")
+include("Params.jl")
+
 include("GOF.jl")
 include("Optim/Optim.jl")
-include("metadata.jl")
 
 include("Kv_Profile.jl")
 include("Model_SoilDiffEqs.jl")

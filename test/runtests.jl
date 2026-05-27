@@ -3,7 +3,6 @@ using ModelParams, Test, Parameters
 
 include("test-SoilDiffEqs.jl")
 include("Model_SoilDiffEqs.jl")
-##
 
 ##
 include("Model_PML.jl")
@@ -11,14 +10,13 @@ include("Model_BEPS_base.jl")
 include("Model_BEPS_1.0.jl")
 include("Model_BEPS_2.0.jl")
 
+include("test-type_stability.jl")
+
 ##
 @testset "GOF" begin
     @test GOF(1:10, 2:11) ==
           (NSE=0.8787878787878788, R2=1.0, KGE=0.8181818181818181, R=1.0, RMSE=1.0, MAE=1.0, bias=1.0, bias_perc=18.181818181818183, n_valid=10)
 end
 
-# include("test-par_map.jl")
-# include("test-sceua.jl")
-
-# 类型稳定性检查：必须在所有 Model_*.jl 之后 include，依赖 ParamBEPS/ParamBEPS2 等
-include("test-type_stability.jl")
+include("test-par_map.jl")
+include("test-sceua.jl")
