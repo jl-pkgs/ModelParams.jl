@@ -7,7 +7,7 @@ export _sync_ksat!
 export AbstractThermal, AbstractThermalLayers
 export ThermalMain, ThermalMainLayers, ThermalBase, ThermalBaseLayers, ThermalProfile
 
-export SoilModel
+export SoilColumn
 
 abstract type AbstractRetention{T<:Real} end
 abstract type AbstractThermal{T<:Real} end
@@ -65,7 +65,7 @@ _sync_ksat!(kv, layers, dz_cm) = nothing
 
 ## Hydraulic Profile
 # T 自动从 profile 的 typeof 推断，吸收掉 MultiLayer 的 NT 类型参数
-mutable struct HydraulicProfile{FT<:AbstractFloat,N,
+@with_kw mutable struct HydraulicProfile{FT<:AbstractFloat,N,
     P<:AbstractRetention{FT},T<:MultiLayer{FT,N,P},K}
 
     profile::T
@@ -104,7 +104,7 @@ const ThermalBaseLayers{FT,N} = MultiLayer{FT,N,ThermalBase{FT}}
 const AbstractThermalLayers{FT,N} = MultiLayer{FT,N,S} where {S<:AbstractThermal{FT}}
 
 # ThermalProfile可以暂时不使用
-mutable struct ThermalProfile{FT<:AbstractFloat,N,
+@with_kw mutable struct ThermalProfile{FT<:AbstractFloat,N,
     P<:AbstractThermal{FT},
     T<:MultiLayer{FT,N,P}}
     profile::T
@@ -116,20 +116,4 @@ function ThermalProfile{FT,N}(
     profile=ThermalMainLayers{FT,N}()) where {FT<:AbstractFloat,N}
     layers = Vector(profile)
     ThermalProfile{FT,N,eltype(layers),typeof(profile)}(profile, layers)
-end
-
-
-##
-mutable struct SoilModel{FT<:AbstractFloat,N,
-    H<:HydraulicProfile{FT,N},T<:ThermalProfile{FT,N}}
-
-    hydraulic::H   # 水力剖面
-    thermal::T     # 热力剖面
-end
-
-# 外构造器：N 作为类型参数显式传入，避免 runtime N → 类型不稳定
-function SoilModel{FT,N}(
-    hydraulic=HydraulicProfile{FT,N}(),
-    thermal=ThermalProfile{FT,N}()) where {FT<:AbstractFloat,N}
-    SoilModel{FT,N,typeof(hydraulic),typeof(thermal)}(hydraulic, thermal)
 end

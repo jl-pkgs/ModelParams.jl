@@ -12,7 +12,7 @@ _struct_is_stable(x) = isconcretetype(typeof(x)) && _fieldtypes_are_concrete(x)
     kv = @inferred KvLayers(retention)
     hydraulic = HydraulicProfile{FT,N}(retention, kv)
     thermal = ThermalProfile{FT,N}()
-    model = SoilModel{FT,N}(hydraulic, thermal)
+    model = SoilColumn{FT,N}(hydraulic, thermal)
 
     @testset "concrete instance layouts" begin
         @test _struct_is_stable(p)
@@ -29,7 +29,7 @@ _struct_is_stable(x) = isconcretetype(typeof(x)) && _fieldtypes_are_concrete(x)
         @test hydraulic isa HydraulicProfile{FT,N,Campbell{FT},typeof(retention),typeof(kv)}
         @test thermal.profile isa ThermalMainLayers{FT,N}
         @test thermal isa ThermalProfile{FT,N,ThermalMain{FT},typeof(thermal.profile)}
-        @test model isa SoilModel{FT,N,typeof(hydraulic),typeof(thermal)}
+        @test model isa SoilColumn{FT,N,typeof(hydraulic),typeof(thermal)}
     end
 
     @testset "nested fields remain concrete" begin
@@ -45,7 +45,7 @@ _struct_is_stable(x) = isconcretetype(typeof(x)) && _fieldtypes_are_concrete(x)
         @test (@inferred KvLayers(retention)) isa KvLayers{FT,N}
         @test (@inferred HydraulicProfile{FT,N}()) isa HydraulicProfile{FT,N}
         @test (@inferred ThermalProfile{FT,N}()) isa ThermalProfile{FT,N}
-        @test (@inferred SoilModel{FT,N}()) isa SoilModel{FT,N}
+        @test (@inferred SoilColumn{FT,N}()) isa SoilColumn{FT,N}
     end
 
     params = parameters(model)

@@ -31,13 +31,13 @@ using ModelParams, Test, Parameters
               ThermalProfile{FT,N,ThermalMain{FT},typeof(layers)}
     end
 
-    @testset "SoilModel" begin
+    @testset "SoilColumn" begin
         # 无参路径：constprop 全走默认值，可 @inferred
-        @test (@inferred SoilModel{FT,N}()) isa SoilModel{FT,N}
+        @test (@inferred SoilColumn{FT,N}()) isa SoilColumn{FT,N}
         # 显式 hydraulic：N 作为类型参数传入，thermal 从 hydraulic 的类型参数 N 派生
         h = HydraulicProfile{FT,N}()
-        model = @inferred SoilModel{FT,N}(h)
-        @test model isa SoilModel{FT,N}
+        model = @inferred SoilColumn{FT,N}(h)
+        @test model isa SoilColumn{FT,N}
         @test model.hydraulic === h
         @test model.thermal isa ThermalProfile{FT,N}
     end

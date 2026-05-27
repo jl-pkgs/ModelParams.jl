@@ -1,4 +1,4 @@
-export kv_at_depth, effective_ksat, kv_layer_ksat
+export kv_at_depth, kv_layer_ksat
 
 # ──────────────────────────────────────────────
 # Unified dispatch: kv_at_depth(profile, layer, z_cm)
@@ -110,14 +110,3 @@ end
 #     f_base  = T(kv.f[nlayers_kv])
 #     _kv_integral(kv_base, f_base, z1_cm - z_layered_cm, z2_cm - z_layered_cm)
 # end
-
-"""
-    effective_ksat(ps, i, z_cm) → Ksat [cm h⁻¹]
-
-Return point-estimate Ksat at centre depth z_cm for layer i.
-Primarily for inspection — the solver uses `ps.param_hydraulic[i].Ksat` (pre-integrated).
-The default `kv_profile` is `KvLayers`, initialized from hydraulic Ksat.
-"""
-function effective_ksat(ps::SoilModel, i::Int, z_cm::Real)
-    kv_at_depth(ps.hydraulic.kv, i, z_cm)
-end

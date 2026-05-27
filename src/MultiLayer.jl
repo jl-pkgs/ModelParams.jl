@@ -85,6 +85,7 @@ has_definedbounds(x::AbstractLayers) = true
     :($(Tuple(keep)))
 end
 
+# 如果一个结构体，已经提前定义了get_params，就不递归展开了
 function get_params(x::MultiLayer{FT,N,S}; path=[], with_unit=true) where {FT,N,S}
     fields = _ml_float_fields(S)
     res = map(fields) do field

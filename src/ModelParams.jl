@@ -38,10 +38,9 @@ include("GOF.jl")
 include("Optim/Optim.jl")
 
 include("Kv_Profile.jl")
-include("Model_SoilDiffEqs.jl")
 include("Kv.jl")
-
-include("Optim.jl")
+include("Model_SoilDiffEqs.jl")
+include("SoilColumn.jl")
 
 export bounds, units, @bounds, @units
 
