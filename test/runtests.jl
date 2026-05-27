@@ -7,6 +7,9 @@ include("test-SoilDiffEqs.jl")
 include("test-SoilColumn.jl")
 include("Model_SoilDiffEqs.jl")
 
+include("test-partials_Campbell.jl")
+include("test-partials_Van.jl")
+
 ##
 include("Model_PML.jl")
 include("Model_BEPS_base.jl")

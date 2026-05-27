@@ -42,6 +42,11 @@ include("Kv.jl")
 include("Model_SoilDiffEqs.jl")
 include("SoilColumn.jl")
 
+include("Retention.jl")
+include("Retention_Campbell.jl")
+include("Retention_van_Genuchten.jl")
+
+
 export bounds, units, @bounds, @units
 
 
