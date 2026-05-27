@@ -1,23 +1,23 @@
-export update_params!, filter_params
+export update_params!, filter_params, AbstractSoilModel
+
+
+# Subtypes get filter_params and update_params! for free.
+abstract type AbstractSoilModel{FT,N} end
 
 ##
 @with_kw mutable struct SoilColumn{FT<:AbstractFloat,N,
-    H<:HydraulicProfile{FT,N},T<:ThermalProfile{FT,N}}
-    hydraulic::H   # 水力剖面
-    thermal::T     # 热力剖面
+    H<:HydraulicProfile{FT,N},T<:ThermalProfile{FT,N}} <: AbstractSoilModel{FT,N}
+    hydraulic::H
+    thermal::T
 end
 
-# 外构造器：N 作为类型参数显式传入，避免 runtime N → 类型不稳定
 function SoilColumn{FT,N}(
     hydraulic=HydraulicProfile{FT,N}(),
     thermal=ThermalProfile{FT,N}()) where {FT<:AbstractFloat,N}
-
     SoilColumn{FT,N,typeof(hydraulic),typeof(thermal)}(hydraulic, thermal)
 end
 
-# effective_ksat(ps::SoilColumn, i::Int, z_cm::Real) = kv_at_depth(ps.hydraulic.kv, i, z_cm)
-
-# Sync Ksat from kv profile into the SoA hydraulic profile (writes to profile.Ksat[i]).
+# Sync Ksat from kv profile into the SoA hydraulic profile.
 function _sync_ksat!(kv::Union{AbstractKv,AbstractKvLayers},
     profile::AbstractRetentionLayers{FT,N},
     dz_cm::AbstractVector) where {FT,N}
@@ -34,12 +34,15 @@ end
 # list_fix:       field names excluded from calibration, matched via params.name
 # list_sameLayer: field names shared across all hydraulic layers (e.g. Campbell ψ_sat);
 #                 returns one deduped row per name; update_params! broadcasts it back.
-function filter_params(ps::SoilColumn, mod::Union{Symbol,AbstractVector{Symbol}};
+#
+# Generic: works on any struct whose parameters() returns a standard DataFrame.
+# KvExpPiecewise.z_exp is auto-excluded when ps.hydraulic.kv isa KvExpPiecewise.
+function filter_params(ps, mod::Union{Symbol,AbstractVector{Symbol}};
     inds=nothing,
     list_sameLayer::Vector{Symbol}=Symbol[],
     list_fix::Vector{Symbol}=Symbol[])
 
-    params = parameters(ps)           # base struct-traversal in Params.jl
+    params = parameters(ps)
     n = nrow(params)
     mask = trues(n)
 
@@ -61,7 +64,8 @@ function filter_params(ps::SoilColumn, mod::Union{Symbol,AbstractVector{Symbol}}
 
     # list_fix: z_exp is a design parameter for KvExpPiecewise, always excluded
     fix_set = Set(list_fix)
-    ps.hydraulic.kv isa KvExpPiecewise && push!(fix_set, :z_exp)
+    hasfield(typeof(ps), :hydraulic) && ps.hydraulic.kv isa KvExpPiecewise &&
+        push!(fix_set, :z_exp)
     for (i, name) in enumerate(params.name)
         mask[i] && name ∈ fix_set && (mask[i] = false)
     end
@@ -78,10 +82,12 @@ function filter_params(ps::SoilColumn, mod::Union{Symbol,AbstractVector{Symbol}}
 end
 
 
+# Shared update logic for AbstractSoilModel subtypes.
+# Requires ps.hydraulic::HydraulicProfile and ps.thermal::ThermalProfile.
+#
 # list_sameLayer: broadcast the source-layer value to all hydraulic profile layers
-#                 after update!, and before update_hydraulic! (VG: m depends on n)
-# list_fix:       excluded from params by get_params, so update! never touches them
-function update_params!(ps::SoilColumn{FT,N}, paths, theta;
+# list_fix:       excluded from params by filter_params, so update! never touches them
+function update_params!(ps::AbstractSoilModel{FT,N}, paths, theta;
     params=nothing,
     list_sameLayer::Vector{Symbol}=Symbol[],
     list_fix::Vector{Symbol}=Symbol[]) where {FT<:Real,N}
@@ -93,10 +99,9 @@ function update_params!(ps::SoilColumn{FT,N}, paths, theta;
     update!(ps, paths, theta; params)
 
     # broadcast list_sameLayer from source layer to all layers before update_hydraulic!
-    # 要求在
     for (i, name) in enumerate(params.name)
         name in list_sameLayer || continue
-        I = params.path[i][end]   # layer index
+        I = params.path[i][end]
         I isa Integer || continue
         h = getproperty(ps.hydraulic.profile, name)
         fill!(h, h[I])
