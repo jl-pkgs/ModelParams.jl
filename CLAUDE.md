@@ -14,6 +14,8 @@ src/
   Kv.jl                   # kv_at_depth, kv_layer_ksat dispatch
   Model_SoilDiffEqs.jl    # Campbell, VanGenuchten, HydraulicProfile, ThermalProfile
   SoilColumn.jl           # AbstractSoilModel, SoilColumn, filter_params, update_params!
+  Retention_ParamTable.jl # get_soilpar(:Campbell/:VanGenuchten, soil_type) look-up table
+  Retention_PTF.jl        # campbell_from_ptf + scalar PTF functions
 
 test/
   test-Kv_profile.jl      # kv_at_depth / kv_layer_ksat for all Kv types
@@ -108,6 +110,39 @@ julia --project -e "include(\"test/test-SoilColumn.jl\")"
 ```
 
 Type-stability: `@inferred MyStruct{Float64,5}()` must return a fully concrete type (no free type parameters). Check with `@code_warntype`.
+
+## Soil parameter initialisation
+
+### `get_soilpar` — texture look-up table (`Retention_ParamTable.jl`)
+
+Three calling forms (all equivalent):
+```julia
+get_soilpar(:Campbell, 7)              # Symbol (recommended)
+get_soilpar(Val{:Campbell}, 7)         # Type (also works after recent change)
+get_soilpar(7; retention="Campbell")   # string convenience wrapper
+```
+`soil_type` 1–12 follows USDA classification (1=Clay … 12=Sand). The `verbose=true` kwarg prints the texture name (requires `USDA` module in scope).
+
+### `campbell_from_ptf` — pedotransfer functions (`Retention_PTF.jl`)
+
+```julia
+campbell_from_ptf(clay, silt, sand, bd, ph; ksat_method=:brakensiek)
+# → Campbell{Float64}
+```
+
+Scalar PTF functions (all `@inline`, type-stable):
+
+| Function | Output | Source |
+|---|---|---|
+| `θsat_toth(ph, bd, clay, silt)` | θ_sat [m³/m³] | Tóth et al. 2015 |
+| `θres_rawls_brakensiek(sand, clay, θsat)` | θ_res [m³/m³] | Rawls & Brakensiek 1989 |
+| `pore_size_index_brakensiek(sand, θsat, clay)` | λ [-] | Rawls & Brakensiek 1989 |
+| `b_cosby(clay, sand)` | b [-] | Cosby et al. 1984 |
+| `psi_sat_cosby(sand)` | ψ_sat [cm, negative] | Cosby et al. 1984 |
+| `kv_brakensiek(θsat, clay, sand)` | Ksat [cm h⁻¹] | Brakensiek et al. 1984 |
+| `kv_cosby(sand, clay)` | Ksat [cm h⁻¹] | Cosby et al. 1984 |
+
+Unit conversion constant: `_MM_DAY_TO_CM_H = 1/240`.
 
 ## Parameter row counts (N=5 reference)
 

@@ -86,6 +86,28 @@ AbstractSoilModel{FT,N}
 | `Campbell` | `θ_sat`, `ψ_sat`, `b` |
 | `VanGenuchten` | `θ_sat`, `θ_res`, `α`, `n` (m derived) |
 
+### Soil parameter initialisation
+
+Two complementary ways to obtain retention parameters before calibration:
+
+**Look-up table** (`get_soilpar`) — Bonan (2019) Table 8.3, 12 USDA texture classes:
+
+```julia
+par = get_soilpar(:Campbell, 7)       # Loam, Campbell parameters
+par = get_soilpar(:VanGenuchten, 9)   # Sandy loam, van Genuchten parameters
+```
+
+**Pedotransfer functions** (`campbell_from_ptf`) — derive parameters from measured soil
+texture attributes (clay %, silt %, sand %, bulk density, pH):
+
+```julia
+par = campbell_from_ptf(30.0, 30.0, 40.0, 1.35, 6.5)           # Brakensiek Ksat
+par = campbell_from_ptf(30.0, 30.0, 40.0, 1.35, 6.5; ksat_method=:cosby)
+```
+
+Sources: θ_sat — Tóth et al. (2015); b, θ_res — Rawls & Brakensiek (1989);
+ψ_sat, Ksat — Cosby et al. (1984); Ksat (alt) — Brakensiek et al. (1984).
+
 ### Ksat profiles
 
 | Type | Description |

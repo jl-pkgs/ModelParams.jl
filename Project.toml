@@ -1,6 +1,6 @@
 name = "ModelParams"
 uuid = "213f2e2a-cade-4ae1-a9bc-67b7781bcca8"
-version = "0.1.2"
+version = "0.2.0"
 authors = ["Dongdong Kong <kongdd@users.noreply.github.com>"]
 
 [deps]
