@@ -41,6 +41,12 @@ const AbstractRetentionLayers{FT,N} = MultiLayer{FT,N,S} where {S<:AbstractReten
 _retention_method(::CampbellLayers) = "Campbell"
 _retention_method(::VanGenuchtenLayers) = "van_Genuchten"
 
+update_hydraulic!(hydraulic) = nothing
+function update_hydraulic!(hydraulic::VanGenuchtenLayers{FT,N}) where {FT<:Real,N}
+    hydraulic.m .= 1 .- 1 ./ hydraulic.n # 只处理VanGenuchten，其他类型的hydraulic不更新
+    return nothing
+end
+
 
 default_hydraulic(::Type{FT}, ::Val{:van_Genuchten}) where {FT<:AbstractFloat} =
     VanGenuchten{FT}(; θ_sat=0.4, θ_res=0.1, Ksat=2.0, α=0.01, n=2.0)
