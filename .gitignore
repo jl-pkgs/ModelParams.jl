@@ -1,5 +1,6 @@
 Manifest.toml
-docs
+# docs
+docs/backup
 *.sh
 backup
 .worktree
