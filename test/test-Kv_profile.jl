@@ -111,6 +111,51 @@ end
     @test ubc[3] ≈ 500.0  # z_exp upper
 end
 
+@testset "KvExpPiecewise — kv_at_depth" begin
+    # 2-segment profile:
+    #   seg1: z ∈ [0, 100],  Ksat = 10·exp(-0.01·z)
+    #   seg2: z ∈ [100,200], Ksat = 5·exp(-0.02·(z-100))
+    #   below 200: constant tail = 5·exp(-0.02·100) = 5·exp(-2)
+    kv = KvExpPiecewise{Float64,2}(kv=[10.0, 5.0], f=[0.01, 0.02], z_exp=[100.0, 200.0])
+
+    @test kv_at_depth(kv, 1, 0.0)   ≈ 10.0                    # surface
+    @test kv_at_depth(kv, 1, 50.0)  ≈ 10.0 * exp(-0.5)        # mid seg1
+    @test kv_at_depth(kv, 1, 100.0) ≈ 10.0 * exp(-1.0)        # boundary (≤ z_exp[1])
+    @test kv_at_depth(kv, 2, 150.0) ≈ 5.0  * exp(-1.0)        # mid seg2 (local z=50)
+    @test kv_at_depth(kv, 3, 250.0) ≈ 5.0  * exp(-2.0)        # constant tail
+
+    # within each segment: strictly decreasing with local depth
+    @test kv_at_depth(kv, 1, 10.0) > kv_at_depth(kv, 1, 90.0)   # seg1
+    @test kv_at_depth(kv, 2, 110.0) > kv_at_depth(kv, 2, 190.0) # seg2
+    # seg2 resets to kv[2] at local z=0 (z=100)
+    @test kv_at_depth(kv, 2, 100.0 + 1e-10) ≈ 5.0  atol=1e-8
+end
+
+@testset "KvExpPiecewise — kv_layer_ksat" begin
+    kv = KvExpPiecewise{Float64,2}(kv=[10.0, 5.0], f=[0.01, 0.02], z_exp=[100.0, 200.0])
+    tail = 5.0 * exp(-2.0)   # constant below z=200
+
+    # layer entirely in seg1
+    @test kv_layer_ksat(kv, 1, 0.0, 100.0) ≈ 10.0 * (1 - exp(-1.0))  # = 10/(f·dz)·Δexp
+
+    # layer entirely in seg2  (local z ∈ [0, 100])
+    @test kv_layer_ksat(kv, 2, 100.0, 200.0) ≈ 2.5 * (1 - exp(-2.0))
+
+    # layer straddling the segment boundary [80, 120]
+    e1 = 10.0 / (0.01 * 20) * (exp(-0.8) - exp(-1.0)) * 20   # seg1 contribution × width
+    e2 =  5.0 / (0.02 * 20) * (1        - exp(-0.4))  * 20   # seg2 contribution × width
+    @test kv_layer_ksat(kv, 1, 80.0, 120.0) ≈ (e1 + e2) / 40
+
+    # layer entirely below last segment: constant
+    @test kv_layer_ksat(kv, 3, 210.0, 250.0) ≈ tail
+    @test kv_layer_ksat(kv, 3, 200.0, 250.0) ≈ tail   # starts exactly at boundary
+
+    # layer straddling last segment end [160, 220]
+    e3 = 5.0 / (0.02 * 40) * (exp(-1.2) - exp(-2.0)) * 40   # seg2 part
+    e4 = tail * 20                                             # constant part (20 cm)
+    @test kv_layer_ksat(kv, 2, 160.0, 220.0) ≈ (e3 + e4) / 60
+end
+
 # @testset "KvProfile layer ModelParams bridge" begin
 #     kv = KvExpLayers{Float64,3}(kv=[5.0, 8.0, 3.0], f=[0.02, 0.01, 0.01])
 #     @test kv isa AbstractKvLayers
