@@ -103,3 +103,4 @@ function get_opt_info(model; paths=nothing)
 end
 
 export get_params, parameters, update!
+export get_opt_info

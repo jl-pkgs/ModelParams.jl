@@ -81,12 +81,12 @@ function filter_params(ps, mod::Union{Symbol,AbstractVector{Symbol}};
     params[mask, :]
 end
 
-
 # Shared update logic for AbstractSoilModel subtypes.
 # Requires ps.hydraulic::HydraulicProfile and ps.thermal::ThermalProfile.
 #
 # list_sameLayer: broadcast the source-layer value to all hydraulic profile layers
 # list_fix:       excluded from params by filter_params, so update! never touches them
+# !注意，要传入dz_cm
 function update_params!(ps::AbstractSoilModel{FT,N}, paths, theta;
     params=nothing,
     list_sameLayer::Vector{Symbol}=Symbol[],

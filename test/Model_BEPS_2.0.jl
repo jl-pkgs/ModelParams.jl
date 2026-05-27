@@ -1,6 +1,6 @@
 include("Model_BEPS_base.jl")
 
-# ParamBEPS3 <: AbstractSoilModel{FT,N}:
+# ParamBEPS2 <: AbstractSoilModel{FT,N}:
 #   - thermal 改用 ThermalProfile（统一 SoA + AoS 缓存）
 #   - 继承 filter_params / update_params! 无需额外代码
 @bounds @with_kw mutable struct ParamBEPS2{FT<:AbstractFloat,N,
