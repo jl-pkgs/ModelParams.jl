@@ -2,6 +2,7 @@ using ModelParams, Test, Parameters
 # 必须要@with_kw，Base.@kwdef报错
 
 include("test-SoilDiffEqs.jl")
+include("test-SoilColumn.jl")
 include("Model_SoilDiffEqs.jl")
 
 ##

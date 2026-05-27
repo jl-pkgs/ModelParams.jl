@@ -1,4 +1,4 @@
-export update_params!, optim_params
+export update_params!, filter_params
 
 ##
 @with_kw mutable struct SoilColumn{FT<:AbstractFloat,N,
@@ -34,7 +34,7 @@ end
 # list_fix:       field names excluded from calibration, matched via params.name
 # list_sameLayer: field names shared across all hydraulic layers (e.g. Campbell ψ_sat);
 #                 returns one deduped row per name; update_params! broadcasts it back.
-function optim_params(ps::SoilColumn, mod::Union{Symbol,AbstractVector{Symbol}};
+function filter_params(ps::SoilColumn, mod::Union{Symbol,AbstractVector{Symbol}};
     inds=nothing,
     list_sameLayer::Vector{Symbol}=Symbol[],
     list_fix::Vector{Symbol}=Symbol[])
@@ -86,7 +86,7 @@ function update_params!(ps::SoilColumn{FT,N}, paths, theta;
     list_sameLayer::Vector{Symbol}=Symbol[],
     list_fix::Vector{Symbol}=Symbol[]) where {FT<:Real,N}
 
-    isnothing(params) && (params = optim_params(ps, :hydraulic; list_sameLayer, list_fix))
+    isnothing(params) && (params = filter_params(ps, :hydraulic; list_sameLayer, list_fix))
     length(paths) == length(theta) ||
         throw(ArgumentError("paths and theta must have the same length, got $(length(paths)) and $(length(theta))."))
 
