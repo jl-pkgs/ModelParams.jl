@@ -4,3 +4,4 @@ docs/backup
 *.sh
 backup
 .worktree
+.vscode

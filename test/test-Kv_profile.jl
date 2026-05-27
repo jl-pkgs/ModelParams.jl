@@ -85,7 +85,7 @@ end
     par = Campbell(θ_sat=0.4, ψ_sat=-10.0, Ksat=10.0, b=4.0)
     kv2 = KvExp(kv=10.0, f=0.01)
     dz = [20.0, 20.0, 20.0]   # [cm]
-    # ps = SoilModel(par, 3; kv_profile=kv2, dz_cm=dz)
+    # ps = SoilColumn(par, 3; kv_profile=kv2, dz_cm=dz)
     # for i in 1:3
     #     z1_cm = (i - 1) * 20.0
     #     z2_cm = i * 20.0
@@ -165,7 +165,7 @@ end
 #     @test params.path == [[:kv, 1], [:kv, 2], [:kv, 3], [:f, 1], [:f, 2], [:f, 3]]
 
 #     par = Campbell(θ_sat=0.4, ψ_sat=-10.0, Ksat=10.0, b=4.0)
-#     ps = SoilModel(par, 3; kv_profile=kv, nlayers_kv=2, dz_cm=[20.0, 20.0, 20.0])
+#     ps = SoilColumn(par, 3; kv_profile=kv, nlayers_kv=2, dz_cm=[20.0, 20.0, 20.0])
 #     @test ps.kv_profile isa AbstractKvLayers
 #     @test get_params(ps, :kv_profile).value == params.value
 # end

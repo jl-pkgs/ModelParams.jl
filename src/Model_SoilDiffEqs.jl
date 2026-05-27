@@ -25,8 +25,9 @@ end
 
 @bounds @units @with_kw mutable struct Campbell{T<:Real} <: AbstractRetention{T}
     θ_sat::T = 0.287 | (0.25, 0.50) | "m3 m-3"
+    θ_res::T = 0.075 | nothing | "m3 m-3"   # [m3 m-3] # not used in Campbell, but for BEPS
     ψ_sat::T = -10.0 | (-100.0, -5.0) | "cm"
-    Ksat::T = 34.0 | nothing | "cm h-1"   # [cm h-1]; overridden by kv_profile when set
+    Ksat::T = 34.0 | nothing | "cm h-1"          # [cm h-1]; overridden by kv_profile when set
     b::T = 4.0 | (2.0, 15.0) | "-"
     θ_fc::T = 0.2 | nothing | "m3 m-3"           # field capacity, optional
 end
