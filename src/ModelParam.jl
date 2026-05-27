@@ -63,11 +63,13 @@ end
 # 从单层 AoS 实例构造 SoA MultiLayer
 @generated function Layers(p::P, N::Int) where {P}
     FT = Float64
-    for ft in fieldtypes(P)
+    fnames = fieldnames(P)
+    ftypes = fieldtypes(P)
+    for ft in ftypes
         ft <: AbstractFloat && (FT = ft; break)
     end
-    fnames = fieldnames(P)
-    kwargs = [:($f = fill(getfield(p, $(QuoteNode(f))), N)) for f in fnames]
+    float_fields = [fnames[i] for (i, t) in enumerate(ftypes) if t <: AbstractFloat]
+    kwargs = [:($f = fill(getfield(p, $(QuoteNode(f))), N)) for f in float_fields]
     quote
         MultiLayer{$FT,N,$P}(; $(kwargs...))
     end
@@ -90,18 +92,23 @@ function update!(x::MultiLayer, path::Vector, value::FT; type::Type) where {FT}
 end
 
 # 多层参数收集：从 S 取字段集和 bounds/units 元数据
+@generated function _ml_float_fields(::Type{S}) where {S}
+    keep = [f for (f, t) in zip(fieldnames(S), fieldtypes(S)) if t <: AbstractFloat]
+    :($(Tuple(keep)))
+end
+
 function get_params(x::MultiLayer{FT,N,S}; path=[], with_unit=true) where {FT,N,S}
-    fnames = filter(f -> fieldtype(S, f) <: AbstractFloat, fieldnames(S))
+    fnames = _ml_float_fields(S)
+    isempty(fnames) && return []
     res = map(fnames) do field
         value = getproperty(x, field)
         _path = [path..., field]
         bound = bounds(S, field)
         unit = with_unit ? units(S, field) : ""
-        map(i -> (; path=[_path..., i], name=field,
-                value=value[i], type=eltype(value), bound, unit), 1:N)
+        [(; path=[_path..., i], name=field,
+            value=value[i], type=eltype(value), bound, unit) for i in 1:N]
     end
-    res = vcat(res...)
-    filter(x -> !isnothing(x.bound), res)
+    filter(r -> !isnothing(r.bound), reduce(vcat, res))
 end
 
 
@@ -158,14 +165,12 @@ function update!(model::S, paths::Vector, values::Vector{FT},
     ; params::Union{Nothing,DataFrame}=nothing) where {S,FT}
     isnothing(params) && (params = parameters(model))
 
+    path_idx = Dict(p => i for (i, p) in enumerate(params.path))
+    length(path_idx) == nrow(params) || error("Duplicated parameters found in params!")
     for (path, value) in zip(paths, values)
-        rows = filter(row -> row.path == path, params)
-        if isempty(rows)
-            error("Parameter path $(path) not found in model!")
-        elseif size(rows, 1) > 1
-            error("Duplicated parameters found for path $(path)!")
-        end
-        update!(model, rows.path[1], value; type=rows.type[1])
+        idx = get(path_idx, path, nothing)
+        isnothing(idx) && error("Parameter path $(path) not found in model!")
+        update!(model, params.path[idx], value; type=params.type[idx])
     end
 end
 
