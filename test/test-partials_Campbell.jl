@@ -5,6 +5,10 @@ function cal_se(θ::Real, par::Campbell)
   return se
 end
 
+p = get_soilpar(Val{:Campbell}, 1)
+p = get_soilpar(Val{:VanGenuchten}, 1)
+
+
 @testset "Retention_∂K∂θ" begin
   par = Campbell()
   θ1, θ2 = 0.21, 0.22

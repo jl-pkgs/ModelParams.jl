@@ -45,6 +45,7 @@ include("SoilColumn.jl")
 include("Retention.jl")
 include("Retention_Campbell.jl")
 include("Retention_van_Genuchten.jl")
+include("Retention_ParamTable.jl")
 
 
 export bounds, units, @bounds, @units
