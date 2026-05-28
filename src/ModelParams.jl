@@ -41,14 +41,10 @@ include("Kv_Profile.jl")
 include("Kv.jl")
 include("Model_SoilDiffEqs.jl")
 include("SoilColumn.jl")
-
-include("Retention.jl")
-include("Retention_Campbell.jl")
-include("Retention_van_Genuchten.jl")
-include("Retention_ParamTable.jl")
-include("Retention_PTF.jl")
-
 include("tridiagonal_solver.jl")
+
+include("SoilMoisture/SoilMoisture.jl")
+
 include("soil_texture.jl")
 
 include("Equilibrium.jl")
