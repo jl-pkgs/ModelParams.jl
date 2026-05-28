@@ -49,6 +49,9 @@ include("Retention_ParamTable.jl")
 include("Retention_PTF.jl")
 
 include("tridiagonal_solver.jl")
+include("soil_texture.jl")
+
+include("Equilibrium.jl")
 
 export bounds, units, @bounds, @units
 

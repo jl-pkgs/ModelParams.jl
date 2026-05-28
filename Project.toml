@@ -5,6 +5,7 @@ authors = ["Dongdong Kong <kongdd@users.noreply.github.com>"]
 
 [deps]
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+HypergeometricFunctions = "34004b35-14d8-5ef3-9330-4cdb6864b03a"
 Parameters = "d96e819e-fc66-5662-9728-84c9c7592b0a"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
@@ -13,6 +14,7 @@ Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [compat]
 DataFrames = "1.8.0"
+HypergeometricFunctions = "0.3.28"
 Parameters = "0.12.3"
 Printf = "1.11.0"
 ProgressMeter = "1.11.0"

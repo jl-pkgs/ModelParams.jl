@@ -1,3 +1,15 @@
+@with_kw mutable struct TriSolver{FT,N}
+  a::Vector{FT} = zeros(FT, N)
+  b::Vector{FT} = zeros(FT, N)
+  c::Vector{FT} = zeros(FT, N)
+  d::Vector{FT} = zeros(FT, N)
+  e::Vector{FT} = zeros(FT, N)
+  f::Vector{FT} = zeros(FT, N)
+  # solution
+  u::Vector{FT} = zeros(FT, N)
+  du::Vector{FT} = zeros(FT, N)
+end
+
 """
     tridiagonal_solver(a, b, c, d)
 
@@ -71,4 +83,4 @@ function tridiagonal_solver(a::V, b::V, c::V, d::V;
 end
 
 
-export tridiagonal_solver, tridiagonal_solver!
+export tridiagonal_solver, tridiagonal_solver!, TriSolver
