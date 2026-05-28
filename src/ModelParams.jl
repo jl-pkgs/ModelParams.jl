@@ -48,6 +48,7 @@ include("Retention_van_Genuchten.jl")
 include("Retention_ParamTable.jl")
 include("Retention_PTF.jl")
 
+include("tridiagonal_solver.jl")
 
 export bounds, units, @bounds, @units
 
