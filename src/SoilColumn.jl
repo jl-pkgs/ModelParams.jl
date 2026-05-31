@@ -20,14 +20,14 @@ function SoilColumn{FT,N}(
   SoilColumn{FT,N,typeof(hydraulic),typeof(thermal)}(hydraulic, thermal)
 end
 
-# Sync Ksat from kv profile into the SoA hydraulic profile.
+# Sync K_sat from kv profile into the SoA hydraulic profile.
 function _sync_ksat!(kv::Union{AbstractKv,AbstractKvLayers},
   profile::AbstractRetentionLayers{FT,N},
   dz_cm::AbstractVector) where {FT,N}
   z_cm = FT(0)
   @inbounds for i in 1:N
     dz_i = isempty(dz_cm) ? FT(0) : FT(dz_cm[i])
-    profile.Ksat[i] = kv_layer_ksat(kv, i, z_cm, z_cm + dz_i)
+    profile.K_sat[i] = kv_layer_ksat(kv, i, z_cm, z_cm + dz_i)
     z_cm += dz_i
   end
 end

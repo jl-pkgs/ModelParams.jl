@@ -13,7 +13,7 @@ Parameter management and soil model infrastructure for physically-based models i
 ModelParams.jl provides three integrated layers:
 
 1. **Parameter framework** — annotate model structs with calibration bounds and units; recursively collect, filter, and update parameters via a unified DataFrame API.
-2. **Soil column model** — type-stable N-layer hydraulic and thermal profiles with SoA/AoS dual representation, multiple Ksat profile types, and a calibration-aware update pipeline.
+2. **Soil column model** — type-stable N-layer hydraulic and thermal profiles with SoA/AoS dual representation, multiple K_sat profile types, and a calibration-aware update pipeline.
 3. **Optimization** — SCE-UA global optimizer and goodness-of-fit metrics (NSE, KGE, R², RMSE, …).
 
 ## Parameter Framework
@@ -24,7 +24,7 @@ ModelParams.jl provides three integrated layers:
 @bounds @units @with_kw mutable struct Campbell{T<:Real} <: AbstractRetention{T}
     θ_sat::T = 0.287 | (0.25, 0.50) | "m3 m-3"
     ψ_sat::T = -10.0 | (-100.0, -5.0) | "cm"
-    Ksat::T  = 34.0  | nothing        | "cm h-1"   # nothing → excluded from calibration
+    K_sat::T  = 34.0  | nothing        | "cm h-1"   # nothing → excluded from calibration
     b::T     = 4.0   | (2.0, 15.0)   | "-"
 end
 ```
@@ -81,9 +81,9 @@ AbstractSoilModel{FT,N}
 
 ### Retention models
 
-| Type | Parameters with bounds |
-|---|---|
-| `Campbell` | `θ_sat`, `ψ_sat`, `b` |
+| Type           | Parameters with bounds                 |
+| -------------- | -------------------------------------- |
+| `Campbell`     | `θ_sat`, `ψ_sat`, `b`                  |
 | `VanGenuchten` | `θ_sat`, `θ_res`, `α`, `n` (m derived) |
 
 ### Soil parameter initialisation
@@ -101,23 +101,23 @@ par = get_soilpar(:VanGenuchten, 9)   # Sandy loam, van Genuchten parameters
 texture attributes (clay %, silt %, sand %, bulk density, pH):
 
 ```julia
-par = campbell_from_ptf(30.0, 30.0, 40.0, 1.35, 6.5)           # Brakensiek Ksat
+par = campbell_from_ptf(30.0, 30.0, 40.0, 1.35, 6.5)           # Brakensiek K_sat
 par = campbell_from_ptf(30.0, 30.0, 40.0, 1.35, 6.5; ksat_method=:cosby)
 ```
 
 Sources: θ_sat — Tóth et al. (2015); b, θ_res — Rawls & Brakensiek (1989);
-ψ_sat, Ksat — Cosby et al. (1984); Ksat (alt) — Brakensiek et al. (1984).
+ψ_sat, K_sat — Cosby et al. (1984); K_sat (alt) — Brakensiek et al. (1984).
 
-### Ksat profiles
+### K_sat profiles
 
-| Type | Description |
-|---|---|
-| `KvLayers` | Per-layer constant |
-| `KvExp` | Exponential decay: `kv·exp(−f·z)` |
-| `KvExpConst` | Exponential above `z_exp`, constant below |
-| `KvExpPiecewise` | Piecewise exponential segments |
+| Type             | Description                               |
+| ---------------- | ----------------------------------------- |
+| `KvLayers`       | Per-layer constant                        |
+| `KvExp`          | Exponential decay: `kv·exp(−f·z)`         |
+| `KvExpConst`     | Exponential above `z_exp`, constant below |
+| `KvExpPiecewise` | Piecewise exponential segments            |
 
-`kv_layer_ksat` computes the thickness-weighted average Ksat for a layer, used by `_sync_ksat!` to pre-compute `profile.Ksat[i]` once before the solver hot path.
+`kv_layer_ksat` computes the thickness-weighted average K_sat for a layer, used by `_sync_ksat!` to pre-compute `profile.K_sat[i]` once before the solver hot path.
 
 ### update_params! pipeline
 
@@ -125,7 +125,7 @@ Sources: θ_sat — Tóth et al. (2015); b, θ_res — Rawls & Brakensiek (1989)
 update!(model, paths, theta)          # write values to SoA profile
 fill!(profile.field, value)           # broadcast list_sameLayer to all layers
 update_hydraulic!(profile)            # VanGenuchten: m = 1 − 1/n
-_sync_ksat!(kv, profile, dz_cm)       # Ksat ← layer-integrated kv profile
+_sync_ksat!(kv, profile, dz_cm)       # K_sat ← layer-integrated kv profile
 layers[i] = profile[i]               # rebuild AoS cache
 ```
 

@@ -33,15 +33,15 @@ end
 # @inline function kv_at_depth(kv::KvExpLayers, i::Int, z_cm::Real,
 #                               nlayers_kv::Int, z_layered_cm::Real)
 #     i <= nlayers_kv && return kv.kv[i]
-#     # exponential continuation from the last layered-zone Ksat value
+#     # exponential continuation from the last layered-zone K_sat value
 #     kv.kv[nlayers_kv] * exp(-kv.f[nlayers_kv] * (z_cm - z_layered_cm))
 # end
 
 # ──────────────────────────────────────────────
-# Layer-integrated Ksat: kv_layer_ksat(profile, i, z1_cm, z2_cm)
+# Layer-integrated K_sat: kv_layer_ksat(profile, i, z1_cm, z2_cm)
 #
-# Returns the thickness-weighted average Ksat for layer i spanning [z1_cm, z2_cm] (cm, positive downward).
-# Used by _sync_ksat! to pre-compute param[i].Ksat once, so the solver hot path
+# Returns the thickness-weighted average K_sat for layer i spanning [z1_cm, z2_cm] (cm, positive downward).
+# Used by _sync_ksat! to pre-compute param[i].K_sat once, so the solver hot path
 # needs no runtime ratio correction.
 # ──────────────────────────────────────────────
 

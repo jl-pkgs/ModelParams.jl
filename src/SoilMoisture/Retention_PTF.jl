@@ -70,7 +70,7 @@ end
 
 
 """
-    kv_brakensiek(θsat, clay, sand) → Ksat [cm h⁻¹]
+    kv_brakensiek(θsat, clay, sand) → K_sat [cm h⁻¹]
 
 Saturated hydraulic conductivity. Brakensiek et al. (1984).
 Inputs: θ_sat [m³/m³], clay [%], sand [%].
@@ -94,7 +94,7 @@ end
 
 
 """
-    kv_cosby(sand, clay) → Ksat [cm h⁻¹]
+    kv_cosby(sand, clay) → K_sat [cm h⁻¹]
 
 Saturated hydraulic conductivity. Cosby et al. (1984), Water Resour. Res. 20(6), 682–690.
 Inputs: sand [%], clay [%].
@@ -130,7 +130,7 @@ Build Campbell hydraulic parameters from soil texture attributes using pedotrans
 - θ_sat : Tóth et al. (2015)
 - b     : 1 / pore_size_index, Rawls & Brakensiek (1989)
 - ψ_sat : Cosby et al. (1984)
-- Ksat  : Brakensiek et al. (1984) or Cosby et al. (1984)
+- K_sat  : Brakensiek et al. (1984) or Cosby et al. (1984)
 
 Inputs: clay [%], silt [%], sand [%], bd [g cm⁻³], ph [-].
 `ksat_method`: `:brakensiek` (default) or `:cosby`.
@@ -143,12 +143,12 @@ function campbell_from_ptf(clay::Real, silt::Real, sand::Real, bd::Real, ph::Rea
     λ     = pore_size_index_brakensiek(sand, θ_sat, clay)
     b     = 1.0 / λ
     ψ_sat = psi_sat_cosby(sand)
-    Ksat  = if ksat_method === :brakensiek
+    K_sat  = if ksat_method === :brakensiek
         kv_brakensiek(θ_sat, clay, sand)
     elseif ksat_method === :cosby
         kv_cosby(sand, clay)
     else
         error("Unknown ksat_method: $ksat_method. Use :brakensiek or :cosby.")
     end
-    Campbell{Float64}(; θ_sat, ψ_sat, Ksat, b)
+    Campbell{Float64}(; θ_sat, ψ_sat, K_sat, b)
 end

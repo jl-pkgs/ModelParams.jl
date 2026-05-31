@@ -1,7 +1,7 @@
 function get_soilpar(::Type{Val{:VanGenuchten}}, soil_type::Int=1; verbose=false)
   # Bonan 2019, Table 8.3
   soilparam = [
-    # θ_sat, θ_res, α (cm⁻¹), n, Ksat (cm h⁻¹), ID_USDA, ID_Bonan, name
+    # θ_sat, θ_res, α (cm⁻¹), n, K_sat (cm h⁻¹), ID_USDA, ID_Bonan, name
     0.38 0.068 0.008 1.09 0.2;   #  1, 11, Clay
     0.36 0.070 0.005 1.09 0.02;  #  2, 10, Silty clay
     0.38 0.100 0.027 1.23 0.12;  #  3,  9, Sandy clay
@@ -16,19 +16,19 @@ function get_soilpar(::Type{Val{:VanGenuchten}}, soil_type::Int=1; verbose=false
     0.43 0.045 0.145 2.68 29.7   #  12, 1, Sand
   ]
   verbose && println("[Soil Texture]: ", USDA.SoilTexture(soil_type))
-  θ_sat, θ_res, α, n, Ksat = soilparam[soil_type, :]
-  VanGenuchten(; θ_sat, θ_res, α, n, Ksat)
+  θ_sat, θ_res, α, n, K_sat = soilparam[soil_type, :]
+  VanGenuchten(; θ_sat, θ_res, α, n, K_sat)
 end
 
 # function get_soilpar(::Type{VanGenuchten}, theta::AbstractVector)
-#   θ_sat, θ_res, Ksat, α, n = theta[1:5]
-#   VanGenuchten(; θ_sat, θ_res, α, n, Ksat)
+#   θ_sat, θ_res, K_sat, α, n = theta[1:5]
+#   VanGenuchten(; θ_sat, θ_res, α, n, K_sat)
 # end
 
 function get_soilpar(::Type{Val{:Campbell}}, soil_type::Int=1; verbose=false)
   # Bonan 2019, Table 8.3
   soilparam = [
-    # θ_sat, ψ_sat (cm), b, Ksat (cm h⁻¹), ID_USDA, ID_Bonan, name
+    # θ_sat, ψ_sat (cm), b, K_sat (cm h⁻¹), ID_USDA, ID_Bonan, name
     0.482 -40.5 11.4 0.46;  # 1, 11, Clay
     0.492 -49.0 10.4 0.37;  # 2, 10, Silty clay
     0.426 -15.3 10.4 0.78;  # 3, 9, Sandy clay
@@ -43,16 +43,16 @@ function get_soilpar(::Type{Val{:Campbell}}, soil_type::Int=1; verbose=false)
     0.395 -12.1 4.05 63.36  # 12, 1, Sand
   ]
   verbose && println("[Soil Texture]: ", USDA.SoilTexture(soil_type))
-  θ_sat, ψ_sat, b, Ksat = soilparam[soil_type, :]
-  Campbell(; θ_sat, ψ_sat, b, Ksat)
+  θ_sat, ψ_sat, b, K_sat = soilparam[soil_type, :]
+  Campbell(; θ_sat, ψ_sat, b, K_sat)
 end
 
 get_soilpar(retention::Symbol, soil_type::Int=1; kwargs...) =
     get_soilpar(Val{retention}, soil_type; kwargs...)
 
 # function get_soilpar(::Type{Campbell}, theta::AbstractVector)
-#   θ_sat, ψ_sat, b, Ksat = theta[1:4]
-#   Campbell(; θ_sat, ψ_sat, b, Ksat)
+#   θ_sat, ψ_sat, b, K_sat = theta[1:4]
+#   Campbell(; θ_sat, ψ_sat, b, K_sat)
 # end
 
 # function get_soilpar(theta::AbstractVector; method_retention::String="van_Genuchten")

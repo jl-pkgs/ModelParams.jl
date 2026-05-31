@@ -9,7 +9,7 @@ Campbell (1974) relationships
   - `ψ_sat`: Matric potential at saturation, [cm]
   - `θ_sat`: Volumetric water content at saturation
   - `b`    : Exponent
-  - `Ksat`: Hydraulic conductivity at saturation [cm h-1]
+  - `K_sat`: Hydraulic conductivity at saturation [cm h-1]
 
 # TODO: 核对变量的单位
 
@@ -18,21 +18,21 @@ Campbell (1974) relationships
 θ_sat = 0.25
 ψ_sat = -25.0
 b = 0.2
-Ksat = 3.4e-03
-θ, K, ∂θ∂ψ = Campbell(ψ, ψ_sat, θ_sat, Ksat, b)
+K_sat = 3.4e-03
+θ, K, ∂θ∂ψ = Campbell(ψ, ψ_sat, θ_sat, K_sat, b)
 ```
 """
 @inline function Campbell(ψ::T, par::Campbell{T}) where {T<:Real}
-  (; ψ_sat, θ_sat, Ksat, b) = par
+  (; ψ_sat, θ_sat, K_sat, b) = par
   if ψ <= ψ_sat
     ratio = ψ / ψ_sat
     Se = ratio^(-one(T) / b)
     θ = θ_sat * Se
-    K = Ksat * Se^(2b + 3)
+    K = K_sat * Se^(2b + 3)
     ∂θ∂ψ = -θ_sat / (b * ψ_sat) * Se / ratio
     return θ, K, ∂θ∂ψ
   end
-  θ_sat, Ksat, zero(T)
+  θ_sat, K_sat, zero(T)
 end
 
 """
@@ -44,12 +44,12 @@ end
 end
 
 """
-    Campbell_K(θ, θ_sat, Ksat, b)
+    Campbell_K(θ, θ_sat, K_sat, b)
 """
 @inline @fastmath function Campbell_K(θ::T, par::Campbell{T}) where {T<:Real}
-  (; θ_sat, Ksat, b) = par
+  (; θ_sat, K_sat, b) = par
   Se = clamp(θ / θ_sat, T(0.01), T(1.0))
-  Ksat * Se^(2b + 3)
+  K_sat * Se^(2b + 3)
 end
 
 
@@ -77,12 +77,12 @@ end
 end
 
 @inline @fastmath function Campbell_∂K∂Se(Se::T, par::Campbell{T}) where {T<:Real}
-  (; Ksat, b) = par
-  Ksat * (2b + 3) * (Se^(2b + 2))
+  (; K_sat, b) = par
+  K_sat * (2b + 3) * (Se^(2b + 2))
 end
 
 @inline @fastmath function Campbell_∂K∂θ(θ::T, par::Campbell{T}) where {T<:Real}
-  (; Ksat, b) = par
+  (; K_sat, b) = par
   Se = clamp(θ / par.θ_sat, T(0.01), T(1.0))
   Campbell_∂K∂Se(Se, par) / (par.θ_sat)
 end

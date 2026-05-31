@@ -3,10 +3,10 @@ using ModelParams, Test
 @testset "KvExp" begin
     kv = KvExp(kv=10.0, f=0.01)
 
-    # At the surface (z=0): Ksat = kv
+    # At the surface (z=0): K_sat = kv
     @test kv_at_depth(kv, 1, 0.0) ≈ 10.0
 
-    # At depth 100 cm: Ksat = kv * exp(-f*z) = 10 * exp(-1)
+    # At depth 100 cm: K_sat = kv * exp(-f*z) = 10 * exp(-1)
     @test kv_at_depth(kv, 3, 100.0) ≈ 10.0 * exp(-1.0)
 
     # Strictly decreasing with depth
@@ -22,7 +22,7 @@ end
     # At z < z_exp: same as exponential
     @test kv_at_depth(kv, 1, 20.0) ≈ 10.0 * exp(-0.01 * 20.0)
 
-    # At z_exp: Ksat = kv * exp(-f * z_exp)
+    # At z_exp: K_sat = kv * exp(-f * z_exp)
     kv_at_zexp = 10.0 * exp(-0.01 * 50.0)
     @test kv_at_depth(kv, 2, 50.0) ≈ kv_at_zexp
 
@@ -81,15 +81,15 @@ end
     const_part = ksat_const * 10.0 / 20.0
     @test ksat_kvc ≈ exp_part + const_part
 
-    # _sync_ksat! with dz_cm correctly sets param[i].Ksat via integral
-    par = Campbell(θ_sat=0.4, ψ_sat=-10.0, Ksat=10.0, b=4.0)
+    # _sync_ksat! with dz_cm correctly sets param[i].K_sat via integral
+    par = Campbell(θ_sat=0.4, ψ_sat=-10.0, K_sat=10.0, b=4.0)
     kv2 = KvExp(kv=10.0, f=0.01)
     dz = [20.0, 20.0, 20.0]   # [cm]
     # ps = SoilColumn(par, 3; kv_profile=kv2, dz_cm=dz)
     # for i in 1:3
     #     z1_cm = (i - 1) * 20.0
     #     z2_cm = i * 20.0
-    #     @test ps.param_hydraulic[i].Ksat ≈ kv_layer_ksat(kv2, i, z1_cm, z2_cm)
+    #     @test ps.param_hydraulic[i].K_sat ≈ kv_layer_ksat(kv2, i, z1_cm, z2_cm)
     # end
 end
 
@@ -113,8 +113,8 @@ end
 
 @testset "KvExpPiecewise — kv_at_depth" begin
     # 2-segment profile:
-    #   seg1: z ∈ [0, 100],  Ksat = 10·exp(-0.01·z)
-    #   seg2: z ∈ [100,200], Ksat = 5·exp(-0.02·(z-100))
+    #   seg1: z ∈ [0, 100],  K_sat = 10·exp(-0.01·z)
+    #   seg2: z ∈ [100,200], K_sat = 5·exp(-0.02·(z-100))
     #   below 200: constant tail = 5·exp(-0.02·100) = 5·exp(-2)
     kv = KvExpPiecewise{Float64,2}(kv=[10.0, 5.0], f=[0.01, 0.02], z_exp=[100.0, 200.0])
 
@@ -164,7 +164,7 @@ end
 #     @test params.value == [5.0, 8.0, 3.0, 0.02, 0.01, 0.01]
 #     @test params.path == [[:kv, 1], [:kv, 2], [:kv, 3], [:f, 1], [:f, 2], [:f, 3]]
 
-#     par = Campbell(θ_sat=0.4, ψ_sat=-10.0, Ksat=10.0, b=4.0)
+#     par = Campbell(θ_sat=0.4, ψ_sat=-10.0, K_sat=10.0, b=4.0)
 #     ps = SoilColumn(par, 3; kv_profile=kv, nlayers_kv=2, dz_cm=[20.0, 20.0, 20.0])
 #     @test ps.kv_profile isa AbstractKvLayers
 #     @test get_params(ps, :kv_profile).value == params.value

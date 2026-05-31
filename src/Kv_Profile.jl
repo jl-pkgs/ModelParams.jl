@@ -5,15 +5,15 @@ abstract type AbstractKvProfile{T<:Real} end
 abstract type AbstractKv{FT<:Real} <: AbstractKvProfile{FT} end
 
 
-"""Per-layer Ksat (scalar stub). Use KvLayers for multi-layer instances."""
+"""Per-layer K_sat (scalar stub). Use KvLayers for multi-layer instances."""
 @bounds @units @with_kw mutable struct Kv{T<:Real} <: AbstractKv{T}
     kv::T = 34.0 | (0.002, 60.0) | "cm h-1"
 end
 
 
-"""Exponential decline: Ksat(z) = kv · exp(−f · z)"""
+"""Exponential decline: K_sat(z) = kv · exp(−f · z)"""
 @bounds @units @with_kw mutable struct KvExp{T<:Real} <: AbstractKv{T}
-    kv::T = 34.0 | (0.002, 100.0) | "cm h-1"   # surface Ksat
+    kv::T = 34.0 | (0.002, 100.0) | "cm h-1"   # surface K_sat
     f::T = 0.01 | (0.0, 0.1) | "cm-1"     # depth-decay coefficient
 end
 

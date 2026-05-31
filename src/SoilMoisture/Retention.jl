@@ -69,7 +69,7 @@ function cal_ψ!(ψ::V, ps::HydraulicProfile, θ::V;
 end
 
 # Requires ps.hydraulic.dz_cm to be set so that _sync_ksat! has pre-baked
-# depth-integrated Ksat into ps.layers[i].Ksat. Never call with an empty dz_cm
+# depth-integrated K_sat into ps.layers[i].K_sat. Never call with an empty dz_cm
 # HydraulicProfile when kv is not KvLayers.
 function cal_K!(K::V, K₊ₕ::V, ps::HydraulicProfile, θ::V;
   N::Int, ibeg::Int=1, Δz::V) where {T<:AbstractFloat,V<:AbstractVector{T}}

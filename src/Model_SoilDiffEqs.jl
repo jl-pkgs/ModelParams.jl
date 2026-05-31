@@ -15,7 +15,7 @@ abstract type AbstractThermal{T<:Real} end
 @bounds @units @with_kw mutable struct VanGenuchten{T<:Real} <: AbstractRetention{T}
     θ_sat::T = 0.287 | (0.25, 0.50) | "m3 m-3"   # [m3 m-3]
     θ_res::T = 0.075 | (0.03, 0.20) | "m3 m-3"   # [m3 m-3]
-    Ksat::T = 34.0 | nothing | "cm h-1"    # [cm h-1]; overridden by kv_profile when set
+    K_sat::T = 34.0 | nothing | "cm h-1"    # [cm h-1]; overridden by kv_profile when set
     α::T = 0.027 | (0.002, 0.300) | "cm-1"       # [cm-1]
     n::T = 3.96 | (1.05, 4.00) | "-"             # [-]
     m::T = 1.0 - 1.0 / n
@@ -27,7 +27,7 @@ end
     θ_sat::T = 0.287 | (0.25, 0.50) | "m3 m-3"
     θ_res::T = 0.075 | nothing | "m3 m-3"   # [m3 m-3] # not used in Campbell, but for BEPS
     ψ_sat::T = -10.0 | (-100.0, -5.0) | "cm"
-    Ksat::T = 34.0 | nothing | "cm h-1"          # [cm h-1]; overridden by kv_profile when set
+    K_sat::T = 34.0 | nothing | "cm h-1"          # [cm h-1]; overridden by kv_profile when set
     b::T = 4.0 | (2.0, 15.0) | "-"
     θ_fc::T = 0.2 | nothing | "m3 m-3"           # field capacity, optional
 end
@@ -52,15 +52,15 @@ end
 
 
 default_hydraulic(::Type{FT}, ::Val{:van_Genuchten}) where {FT<:AbstractFloat} =
-    VanGenuchten{FT}(; θ_sat=0.4, θ_res=0.1, Ksat=2.0, α=0.01, n=2.0)
+    VanGenuchten{FT}(; θ_sat=0.4, θ_res=0.1, K_sat=2.0, α=0.01, n=2.0)
 
 default_hydraulic(::Type{FT}, ::Val{:Campbell}) where {FT<:AbstractFloat} =
     Campbell{FT}(; θ_sat=0.4, ψ_sat=-10.0)
 
 
-# 从 retention SoA 派生 Ksat 剖面
+# 从 retention SoA 派生 K_sat 剖面
 function KvLayers(retention::MultiLayer{FT,N,S}) where {FT,N,S<:AbstractRetention{FT}}
-    KvLayers{FT,N}(; kv=deepcopy(retention.Ksat))
+    KvLayers{FT,N}(; kv=deepcopy(retention.K_sat))
 end
 
 _sync_ksat!(kv, layers, dz_cm) = nothing

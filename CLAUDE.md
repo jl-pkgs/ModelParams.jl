@@ -81,7 +81,7 @@ Pipeline order (must not reorder):
 1. `update!(ps, paths, theta; params)` — write to SoA profile
 2. `fill!(profile.field, value)` — broadcast `list_sameLayer`
 3. `update_hydraulic!(profile)` — VG: `m = 1 − 1/n`; others: no-op
-4. `_sync_ksat!(kv, profile, dz_cm)` — layer-integrated Ksat from kv profile
+4. `_sync_ksat!(kv, profile, dz_cm)` — layer-integrated K_sat from kv profile
 5. Rebuild AoS: `layers[i] = profile[i]` for hydraulic and thermal
 
 ### 6. Defining a new soil model
@@ -132,25 +132,69 @@ campbell_from_ptf(clay, silt, sand, bd, ph; ksat_method=:brakensiek)
 
 Scalar PTF functions (all `@inline`, type-stable):
 
-| Function | Output | Source |
-|---|---|---|
-| `θsat_toth(ph, bd, clay, silt)` | θ_sat [m³/m³] | Tóth et al. 2015 |
-| `θres_rawls_brakensiek(sand, clay, θsat)` | θ_res [m³/m³] | Rawls & Brakensiek 1989 |
-| `pore_size_index_brakensiek(sand, θsat, clay)` | λ [-] | Rawls & Brakensiek 1989 |
-| `b_cosby(clay, sand)` | b [-] | Cosby et al. 1984 |
-| `psi_sat_cosby(sand)` | ψ_sat [cm, negative] | Cosby et al. 1984 |
-| `kv_brakensiek(θsat, clay, sand)` | Ksat [cm h⁻¹] | Brakensiek et al. 1984 |
-| `kv_cosby(sand, clay)` | Ksat [cm h⁻¹] | Cosby et al. 1984 |
+| Function                                       | Output               | Source                  |
+| ---------------------------------------------- | -------------------- | ----------------------- |
+| `θsat_toth(ph, bd, clay, silt)`                | θ_sat [m³/m³]        | Tóth et al. 2015        |
+| `θres_rawls_brakensiek(sand, clay, θsat)`      | θ_res [m³/m³]        | Rawls & Brakensiek 1989 |
+| `pore_size_index_brakensiek(sand, θsat, clay)` | λ [-]                | Rawls & Brakensiek 1989 |
+| `b_cosby(clay, sand)`                          | b [-]                | Cosby et al. 1984       |
+| `psi_sat_cosby(sand)`                          | ψ_sat [cm, negative] | Cosby et al. 1984       |
+| `kv_brakensiek(θsat, clay, sand)`              | K_sat [cm h⁻¹]       | Brakensiek et al. 1984  |
+| `kv_cosby(sand, clay)`                         | K_sat [cm h⁻¹]       | Cosby et al. 1984       |
 
 Unit conversion constant: `_MM_DAY_TO_CM_H = 1/240`.
 
 ## Parameter row counts (N=5 reference)
 
-| Profile type | Bounded fields | Rows |
-|---|---|---|
-| CampbellLayers | θ_sat, ψ_sat, b | 15 |
-| VanGenuchtenLayers | θ_sat, θ_res, α, n | 20 |
-| KvLayers | kv | 5 |
-| KvExpLayers | kv, f | 10 |
-| ThermalMainLayers | κ, cv | 10 |
-| ThermalBaseLayers | κ_dry, ρ_soil, V_SOM | 15 |
+| Profile type       | Bounded fields       | Rows |
+| ------------------ | -------------------- | ---- |
+| CampbellLayers     | θ_sat, ψ_sat, b      | 15   |
+| VanGenuchtenLayers | θ_sat, θ_res, α, n   | 20   |
+| KvLayers           | kv                   | 5    |
+| KvExpLayers        | kv, f                | 10   |
+| ThermalMainLayers  | κ, cv                | 10   |
+| ThermalBaseLayers  | κ_dry, ρ_soil, V_SOM | 15   |
+
+<!-- gitnexus:start -->
+# GitNexus — Code Intelligence
+
+This project is indexed by GitNexus as **SPACParams.jl** (604 symbols, 722 relationships, 1 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+
+> If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
+
+## Always Do
+
+- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `gitnexus_impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
+- **MUST run `gitnexus_detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows.
+- **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
+- When exploring unfamiliar code, use `gitnexus_query({query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
+- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `gitnexus_context({name: "symbolName"})`.
+
+## Never Do
+
+- NEVER edit a function, class, or method without first running `gitnexus_impact` on it.
+- NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
+- NEVER rename symbols with find-and-replace — use `gitnexus_rename` which understands the call graph.
+- NEVER commit changes without running `gitnexus_detect_changes()` to check affected scope.
+
+## Resources
+
+| Resource                                       | Use for                                  |
+| ---------------------------------------------- | ---------------------------------------- |
+| `gitnexus://repo/SPACParams.jl/context`        | Codebase overview, check index freshness |
+| `gitnexus://repo/SPACParams.jl/clusters`       | All functional areas                     |
+| `gitnexus://repo/SPACParams.jl/processes`      | All execution flows                      |
+| `gitnexus://repo/SPACParams.jl/process/{name}` | Step-by-step execution trace             |
+
+## CLI
+
+| Task                                         | Read this skill file                                        |
+| -------------------------------------------- | ----------------------------------------------------------- |
+| Understand architecture / "How does X work?" | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md`       |
+| Blast radius / "What breaks if I change X?"  | `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md` |
+| Trace bugs / "Why is X failing?"             | `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md`       |
+| Rename / extract / split / refactor          | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md`     |
+| Tools, resources, schema reference           | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md`           |
+| Index, status, clean, wiki CLI commands      | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md`             |
+
+<!-- gitnexus:end -->

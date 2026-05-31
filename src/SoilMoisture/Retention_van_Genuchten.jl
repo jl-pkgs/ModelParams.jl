@@ -13,7 +13,7 @@ van Genuchten (1980) relationships
 + `param`
   - `θ_res`       : Residual water content
   - `θ_sat`       : Volumetric water content at saturation
-  - `Ksat`        : Hydraulic conductivity at saturation [cm h-1]
+  - `K_sat`        : Hydraulic conductivity at saturation [cm h-1]
   - `α`           : Inverse of the air entry potential (cm-1)
   - `n`           : Pore-size distribution index
   - `m`           : Exponent
@@ -24,22 +24,22 @@ van Genuchten (1980) relationships
 # Haverkamp et al. (1977): sand
 param = (soil_texture = 1, 
   θ_res = 0.075, θ_sat = 0.287, 
-  α = 0.027, n = 3.96, m = 1, Ksat = 34)
+  α = 0.027, n = 3.96, m = 1, K_sat = 34)
 
 # Haverkamp et al. (1977): Yolo light clay
 param = (soil_texture=2, 
   θ_res = 0.124, θ_sat = 0.495,
   α = 0.026, n = 1.43, m = 1 - 1 / 1.43,
-  Ksat = 0.0443)
+  K_sat = 0.0443)
 ```
 """
 @inline function van_Genuchten(ψ::T, par::VanGenuchten{T}) where {T<:Real}
-  (; θ_res, θ_sat, Ksat, α, n, m) = par
+  (; θ_res, θ_sat, K_sat, α, n, m) = par
 
   if ψ <= T(-1e7)
     return θ_res, zero(T), van_Genuchten_∂θ∂ψ(ψ, par)
   elseif ψ > zero(T)
-    return θ_sat, Ksat, zero(T)
+    return θ_sat, K_sat, zero(T)
   end
 
   x = -α * ψ
@@ -50,7 +50,7 @@ param = (soil_texture=2,
   θ = θ_res + (θ_sat - θ_res) * Se
 
   diff = xn / den
-  K = Ksat * sqrt(Se) * (one(T) - diff^m)^2
+  K = K_sat * sqrt(Se) * (one(T) - diff^m)^2
   ∂θ∂ψ = α * m * n * (θ_sat - θ_res) * xnm1 * Se / den
   θ, K, ∂θ∂ψ
 end
@@ -70,12 +70,12 @@ end
 
 # @fastmath 
 function van_Genuchten_K(θ::T, par::VanGenuchten{T}) where {T<:Real}
-  (; θ_res, θ_sat, Ksat, m) = par
+  (; θ_res, θ_sat, K_sat, m) = par
   Se::T = (θ - θ_res) / (θ_sat - θ_res)
   Se = clamp(Se, T(0.0), T(1.0))
 
   diff::T = (1 - Se^(1 / m))
-  K::T = Se < 1 ? Ksat * sqrt(Se) * (1 - diff^m)^2 : Ksat
+  K::T = Se < 1 ? K_sat * sqrt(Se) * (1 - diff^m)^2 : K_sat
   return K
 end
 
@@ -125,11 +125,11 @@ end
 
 
 @inline function van_Genuchten_∂K∂Se(Se::T, par::VanGenuchten{T}) where {T<:Real}
-  (; Ksat, m) = par
+  (; K_sat, m) = par
   f = 1 - (1 - Se^(1 / m))^m
   term1 = f^2 / (2 * sqrt(Se))
   term2 = 2 * Se^(1 / m - 1 / 2) * f / ((1 - Se^(1 / m))^(1 - m))
-  return Ksat * (term1 + term2)
+  return K_sat * (term1 + term2)
 end
 
 @inline function van_Genuchten_∂K∂θ(θ::T, par::VanGenuchten{T}) where {T<:Real}
@@ -149,7 +149,7 @@ export van_Genuchten, van_Genuchten_θ, van_Genuchten_K, van_Genuchten_ψ,
 # - `soil_type = 2`: Yolo light clay
 
 # if soil_type == 1
-#   K = Ksat * 1.175e6 / (1.175e6 + abs(ψ)^4.74)
+#   K = K_sat * 1.175e6 / (1.175e6 + abs(ψ)^4.74)
 # elseif soil_type == 2
-#   K = Ksat * 124.6 / (124.6 + abs(ψ)^1.77)
+#   K = K_sat * 124.6 / (124.6 + abs(ψ)^1.77)
 # end
