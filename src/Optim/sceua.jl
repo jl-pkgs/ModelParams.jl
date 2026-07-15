@@ -44,6 +44,7 @@ function sceua(fn::Function, x0::Vector{FT}, bl::Vector{FT}, bu::Vector{FT}, arg
     criter = []
 
     eval_counts = zeros(Int, n_complex)
+    # 串行调用也可能来自非 1 号线程（如 HTTP worker），但只需一份参数副本。
     nslots = parallel ? Threads.maxthreadid() : 1
     local_args = [deepcopy(args) for _ in 1:nslots]
     local_kw = [deepcopy(kw) for _ in 1:nslots]
@@ -59,9 +60,9 @@ function sceua(fn::Function, x0::Vector{FT}, bl::Vector{FT}, bu::Vector{FT}, arg
             cx = x[k2, :]
             cf = xf[k2]
 
-            tid = Threads.threadid()
-            eval_args = local_args[tid]
-            eval_kw = local_kw[tid]
+            slot = parallel ? Threads.threadid() : 1
+            eval_args = local_args[slot]
+            eval_kw = local_kw[slot]
 
             # Evolve sub-population igs for nspl steps:
             lcs = zeros(Int, size_simplex)

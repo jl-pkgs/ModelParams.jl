@@ -140,6 +140,24 @@ end
   @test abs(feval - -10.5364098252) <= 2e-5
 end
 
+@testset "serial execution from worker threads" begin
+  objective(x, offset; scale=1.0) = scale * (x[1] - offset)^2
+  nworkers = Threads.nthreads(:default)
+  thread_ids = zeros(Int, nworkers)
+  results = Vector{Any}(undef, nworkers)
+  Threads.@threads :static for i in 1:nworkers
+    thread_ids[i] = Threads.threadid()
+    results[i] = sceua(objective, [0.0], [-1.0], [1.0], 0.25;
+      scale=2.0, parallel=false, maxn=10, n_complex=1)
+  end
+
+  @test Threads.maxthreadid() == 1 || any(thread_ids .> 1)
+  for (x, feval, _) in results
+    @test isfinite(feval)
+    @test -1.0 <= x[1] <= 1.0
+  end
+end
+
 @testset "parallel reproducibility" begin
   function rosenbrock2(x)
     100 * (x[2] - x[1]^2)^2 + (1 - x[1])^2
