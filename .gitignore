@@ -5,3 +5,4 @@ docs/backup
 backup
 .worktree
 .vscode
+.claude

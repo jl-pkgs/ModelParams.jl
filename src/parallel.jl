@@ -14,13 +14,15 @@ macro par(parallel, ex)
     end)
 end
 
+get_clusters() = Threads.nthreads()
+get_nthreads() = Threads.nthreads(:interactive) + Threads.nthreads(:default)
 
 function par_map(fn, A, args...;
     parallel::Bool=true, progress::Bool=false, use_deepcopy::Bool=true, kw...)
 
     res = Array{Any}(undef, size(A))
 
-    nslots = use_deepcopy ? Threads.maxthreadid() : 0
+    nslots = use_deepcopy ? get_nthreads() : 0
     local_args = use_deepcopy ? [deepcopy(args) for _ in 1:nslots] : nothing
     local_kw = use_deepcopy ? [deepcopy(kw) for _ in 1:nslots] : nothing
 
@@ -39,7 +41,6 @@ function par_map(fn, A, args...;
     map(x -> x, res) # unpack, which necessary
 end
 
-get_clusters() = Threads.nthreads()
 
 
-export @par, par_map, get_clusters
+export @par, par_map, get_clusters, get_nthreads
