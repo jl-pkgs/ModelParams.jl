@@ -1,3 +1,5 @@
+export @par, par_map, get_clusters, get_nthreads
+
 using Base.Threads
 using ProgressMeter
 
@@ -22,25 +24,20 @@ function par_map(fn, A, args...;
 
     res = Array{Any}(undef, size(A))
 
-    nslots = use_deepcopy ? get_nthreads() : 0
-    local_args = use_deepcopy ? [deepcopy(args) for _ in 1:nslots] : nothing
-    local_kw = use_deepcopy ? [deepcopy(kw) for _ in 1:nslots] : nothing
-
     total = length(A)
-    p = progress ? Progress(total) : nothing
-    @par parallel (
-        for i in eachindex(A)
-            tid = threadid()
-            eval_args = use_deepcopy ? local_args[tid] : args
-            eval_kw = use_deepcopy ? local_kw[tid] : kw
+    nworkers = parallel ? get_clusters() : 1
+    chunk_size = max(1, cld(total, nworkers))
+    chunks = collect(Iterators.partition(eachindex(A), chunk_size))
 
+    p = progress ? Progress(total) : nothing
+    @par parallel for chunk in chunks
+        eval_args = use_deepcopy ? deepcopy(args) : args
+        eval_kw = use_deepcopy ? deepcopy(kw) : kw
+
+        for i in chunk
             res[i] = fn(A[i], eval_args...; eval_kw...)
             progress && next!(p)
         end
-    )
+    end
     map(x -> x, res) # unpack, which necessary
 end
-
-
-
-export @par, par_map, get_clusters, get_nthreads

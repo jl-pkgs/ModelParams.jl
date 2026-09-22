@@ -42,6 +42,13 @@ function simulate_step(x, cfg::SolverConfig; delay=0.0)
     return x * x
 end
 
+function detect_overlap(_, active)
+    overlap = Threads.atomic_add!(active, 1)
+    sleep(0.002)
+    Threads.atomic_sub!(active, 1)
+    return overlap
+end
+
 
 
 @testset "par_map thread safety and timing" begin
@@ -55,10 +62,14 @@ end
     @test cfg_safe.state.scratch[1] == 0.0
 
     cfg_parallel = SolverConfig(SolverState(0, [0.0]))
-    t_parallel = @elapsed r_parallel = par_map(simulate_step, A, cfg_parallel; parallel=true, use_deepcopy=true)
+    t_parallel = @elapsed r_parallel = par_map(simulate_step, A, cfg_parallel; parallel=true, use_deepcopy=true, delay)
     @test r_parallel == map(x -> x * x, A)
     @test cfg_parallel.state.counter == 0
     @test cfg_parallel.state.scratch[1] == 0.0
+
+    active = Threads.Atomic{Int}(0)
+    overlaps = par_map(detect_overlap, 1:128, active; parallel=true, use_deepcopy=true)
+    @test all(iszero, overlaps)
 
     speedup = t_serial / t_parallel
     println("par_map benchmark: threads=$(Threads.nthreads()), serial=$(round(t_serial, digits=4))s, parallel=$(round(t_parallel, digits=4))s, speedup=$(round(speedup, digits=2))x")
