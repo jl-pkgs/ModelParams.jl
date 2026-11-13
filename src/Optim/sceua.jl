@@ -44,10 +44,9 @@ function sceua(fn::Function, x0::Vector{FT}, bl::Vector{FT}, bu::Vector{FT}, arg
     criter = []
 
     eval_counts = zeros(Int, n_complex)
-    # 串行调用也可能来自非 1 号线程（如 HTTP worker），但只需一份参数副本。
-    nslots = parallel ? get_nthreads() : 1
-    local_args = [deepcopy(args) for _ in 1:nslots]
-    local_kw = [deepcopy(kw) for _ in 1:nslots]
+    # 每个 complex 独占副本，避免嵌套并行时任务迁移导致共享；串行只需一份。
+    nslots = parallel ? n_complex : 1
+    local_data = [deepcopy((args, kw)) for _ in 1:nslots]
 
     while num_evals .< maxn && gnrng > x_reltol && criter_change .> f_reltol
         nloop = nloop + 1
@@ -60,9 +59,8 @@ function sceua(fn::Function, x0::Vector{FT}, bl::Vector{FT}, bu::Vector{FT}, arg
             cx = x[k2, :]
             cf = xf[k2]
 
-            slot = parallel ? Threads.threadid() : 1
-            eval_args = local_args[slot]
-            eval_kw = local_kw[slot]
+            slot = parallel ? igs : 1
+            eval_args, eval_kw = local_data[slot]
 
             # Evolve sub-population igs for nspl steps:
             lcs = zeros(Int, size_simplex)

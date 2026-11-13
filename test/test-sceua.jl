@@ -158,6 +158,30 @@ end
   end
 end
 
+@testset "nested parallel buffer isolation" begin
+  collisions = Threads.Atomic{Int}(0)
+  function objective(x, buffer; scratch)
+    buffer[1] = x[1]
+    scratch[1] = x[1]
+    Threads.@threads for _ in 1:8
+      sleep(0.0001) # Allow outer tasks to migrate while waiting for nested work.
+    end
+    if buffer[1] != x[1] || scratch[1] != x[1]
+      Threads.atomic_add!(collisions, 1)
+    end
+    sum(abs2, x)
+  end
+
+  buffer, scratch = [0.0], [0.0]
+  kw_local = (; maxn=200, n_complex=8, seed=1, scratch)
+  xp, fp, _ = sceua(objective, [0.5], [0.0], [1.0], buffer; kw_local..., parallel=true)
+  xs, fs, _ = sceua(objective, [0.5], [0.0], [1.0], buffer; kw_local..., parallel=false)
+  @test collisions[] == 0
+  @test buffer == scratch == [0.0]
+  @test xp == xs
+  @test fp == fs
+end
+
 @testset "parallel reproducibility" begin
   function rosenbrock2(x)
     100 * (x[2] - x[1]^2)^2 + (1 - x[1])^2
